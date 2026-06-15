@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Outfit", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --color-moa-ink: #0c1222;
+  --color-moa-indigo: #4f46e5;
+  --color-moa-violet: #7c3aed;
+  --color-moa-coral: #f97316;
+  --color-moa-mint: #10b981;
+  --color-moa-sky: #38bdf8;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-body);
+    scroll-behavior: smooth;
+    background-color: #f8fafc;
+    color: var(--color-moa-ink);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .moa-mesh {
+    background-color: #f8fafc;
+    background-image:
+      radial-gradient(at 0% 0%, rgb(79 70 229 / 0.14) 0, transparent 50%),
+      radial-gradient(at 100% 0%, rgb(124 58 237 / 0.12) 0, transparent 45%),
+      radial-gradient(at 80% 100%, rgb(56 189 248 / 0.1) 0, transparent 40%),
+      radial-gradient(at 10% 90%, rgb(249 115 22 / 0.08) 0, transparent 35%);
+  }
+
+  .moa-glass {
+    background: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  .moa-gradient-text {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 45%, #f97316 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .moa-shine {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .moa-shine::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      105deg,
+      transparent 40%,
+      rgb(255 255 255 / 0.35) 50%,
+      transparent 60%
+    );
+    transform: translateX(-120%);
+    animation: moa-shine 6s ease-in-out infinite;
+  }
+
+  .moa-float {
+    animation: moa-float 6s ease-in-out infinite;
+  }
+
+  .moa-float-delayed {
+    animation: moa-float 6s ease-in-out 2s infinite;
+  }
+
+  .moa-fade-up {
+    animation: moa-fade-up 0.7s ease-out both;
+  }
+
+  .moa-card-hover {
+    transition:
+      transform 0.25s ease,
+      box-shadow 0.25s ease,
+      border-color 0.25s ease;
+  }
+
+  .moa-card-hover:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 40px -12px rgb(79 70 229 / 0.18);
+  }
+
+  .moa-campus-grid {
+    background-image:
+      linear-gradient(rgb(248 250 252 / 0.92), rgb(248 250 252 / 0.92)),
+      radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.12) 1px, transparent 0);
+    background-size: auto, 24px 24px;
+  }
+
+  .moa-lesson-glow {
+    box-shadow:
+      0 0 0 1px rgb(99 102 241 / 0.08),
+      0 24px 48px -24px rgb(79 70 229 / 0.35);
+  }
+}
+
+@keyframes moa-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes moa-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes moa-shine {
+  0%,
+  70%,
+  100% {
+    transform: translateX(-120%);
+  }
+  85% {
+    transform: translateX(120%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .moa-float,
+  .moa-float-delayed,
+  .moa-fade-up,
+  .moa-shine::after {
+    animation: none;
+  }
+
+  .moa-card-hover:hover {
+    transform: none;
+  }
+}

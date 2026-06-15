@@ -1,0 +1,27 @@
+# fly.toml app configuration file generated for moa-app-web on 2026-06-15T17:11:11-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'moa-app-web'
+primary_region = 'gru'
+
+[env]
+  PORT = '3000'
+  HOST = '0.0.0.0'
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024

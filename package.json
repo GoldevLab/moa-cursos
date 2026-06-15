@@ -1,0 +1,47 @@
+{
+  "name": "moa-app-web",
+  "version": "1.0.0",
+  "description": "Sistema Educativo Web MOA — Qwik City",
+  "type": "module",
+  "private": true,
+  "packageManager": "yarn@1.22.22",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build.client && npm run build.server",
+    "build.client": "vite build",
+    "build.preview": "vite build --ssr src/entry.preview.tsx",
+    "build.server": "vite build -c adapters/express/vite.config.ts",
+    "dev": "vite --mode ssr",
+    "db:seed": "tsx scripts/setup-turso.ts",
+    "db:audit-lessons": "tsx scripts/audit-lessons.ts",
+    "setup:turso": "yarn db:seed",
+    "preview": "qwik build preview && vite preview --open",
+    "serve": "PORT=3000 HOST=0.0.0.0 node server/entry.express.js",
+    "start": "PORT=3000 HOST=0.0.0.0 node server/entry.express.js",
+    "qwik": "qwik"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.15",
+    "compression": "^1.8.1",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "undici": "^8.5.0"
+  },
+  "devDependencies": {
+    "@builder.io/qwik": "^1.20.0",
+    "@builder.io/qwik-city": "^1.20.0",
+    "@flydotio/dockerfile": "^0.7.10",
+    "@qwikest/icons": "^0.0.13",
+    "@tailwindcss/vite": "^4.3.0",
+    "@types/compression": "^1.8.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.9.3",
+    "tailwindcss": "^4.3.0",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vite": "^7.3.1",
+    "vite-tsconfig-paths": "^6.1.1"
+  }
+}
