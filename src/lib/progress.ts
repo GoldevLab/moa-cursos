@@ -362,13 +362,14 @@ export const saveSegmentProgress = async (input: {
 
   const existing = await client.execute({
     sql: `SELECT presentation_completada, practice_completada, use_completada,
-                 puntaje_total, intentos, fecha_completado
+                 puntaje_total, intentos, fecha_completado, completada
           FROM progreso_leccion
           WHERE id_estudiante = ? AND id_leccion = ? LIMIT 1`,
     args: [input.idEstudiante, input.idLeccion],
   });
 
   const row = existing.rows[0];
+  const wasCompletada = rowInt(row?.completada) === 1;
   const segmentPassed = segmentScore > 0;
   const presentationDone =
     (input.segment === "presentation" && segmentPassed) ||
@@ -469,23 +470,42 @@ export const saveSegmentProgress = async (input: {
   });
 
   await recalculateStudentTotals(input.idEstudiante, now);
-  await awardLapsoTrophies(input.idEstudiante);
+  const trophiesAwarded = await awardLapsoTrophies(input.idEstudiante);
+  const streakRes = await client.execute({
+    sql: "SELECT racha_actual FROM estudiante WHERE id_estudiante = ? LIMIT 1",
+    args: [input.idEstudiante],
+  });
+  const rachaActual = rowInt(streakRes.rows[0]?.racha_actual);
 
   return {
     puntaje_total: puntajeTotal,
     completada: completada === 1,
     es_perfecta: esPerfecta === 1,
+    newly_completed: completada === 1 && !wasCompletada,
+    segment_xp: segmentScore,
+    trophies_awarded: trophiesAwarded,
+    racha_actual: rachaActual,
   };
 };
 
-const awardLapsoTrophies = async (idEstudiante: number) => {
+const awardLapsoTrophies = async (idEstudiante: number): Promise<number[]> => {
   const client = getDbClient();
-  const gradoRes = await client.execute({
-    sql: "SELECT id_gradoactual FROM estudiante WHERE id_estudiante = ? LIMIT 1",
+  const estudianteRes = await client.execute({
+    sql: `SELECT id_gradoactual, trofeo_lapso1, trofeo_lapso2, trofeo_lapso3
+          FROM estudiante WHERE id_estudiante = ? LIMIT 1`,
     args: [idEstudiante],
   });
-  const idGrado = rowInt(gradoRes.rows[0]?.id_gradoactual);
-  if (!idGrado) return;
+  const est = estudianteRes.rows[0];
+  const idGrado = rowInt(est?.id_gradoactual);
+  if (!idGrado) return [];
+
+  const alreadyTrophies: Record<number, boolean> = {
+    1: rowInt(est?.trofeo_lapso1) === 1,
+    2: rowInt(est?.trofeo_lapso2) === 1,
+    3: rowInt(est?.trofeo_lapso3) === 1,
+  };
+
+  const awarded: number[] = [];
 
   for (const lapso of [1, 2, 3] as const) {
     const res = await client.execute({
@@ -509,12 +529,15 @@ const awardLapsoTrophies = async (idEstudiante: number) => {
     const total = rowInt(res.rows[0]?.total);
     const completed = rowInt(res.rows[0]?.completed);
     if (total > 0 && completed >= total) {
+      if (!alreadyTrophies[lapso]) awarded.push(lapso);
       await client.execute({
         sql: `UPDATE estudiante SET trofeo_lapso${lapso} = 1 WHERE id_estudiante = ?`,
         args: [idEstudiante],
       });
     }
   }
+
+  return awarded;
 };
 
 const recalculateStudentTotals = async (

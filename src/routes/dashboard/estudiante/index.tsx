@@ -11,6 +11,7 @@ import {
   LuZap,
 } from "@qwikest/icons/lucide";
 import { LAPSO_COLORS } from "~/components/student/student-ui";
+import { CampusJourneyMap } from "~/components/student/campus-journey";
 import { getCurrentUsuario } from "~/lib/auth";
 import {
   getEstudianteByUsuarioId,
@@ -121,6 +122,18 @@ export default component$(() => {
           </div>
         </div>
       </section>
+
+      {dashboard?.competencias.length ? (
+        <CampusJourneyMap
+          lapsos={lapsos}
+          competencias={dashboard.competencias}
+          trofeos={{
+            lapso1: perfil.trofeo_lapso1 === 1,
+            lapso2: perfil.trofeo_lapso2 === 1,
+            lapso3: perfil.trofeo_lapso3 === 1,
+          }}
+        />
+      ) : null}
 
       {continuar ? (
         <Link

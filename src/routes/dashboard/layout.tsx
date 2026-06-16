@@ -25,7 +25,9 @@ import {
   dashboardPathForRole,
   redirectToLoginAfterLogout,
 } from "~/lib/auth-navigation";
+import { getEstudianteByUsuarioId, getContinueLesson } from "~/lib/progress";
 import { ensureMoaSchema } from "~/lib/schema";
+import { StudentMobileNav } from "~/components/student/student-mobile-nav";
 
 export const head: DocumentHead = {
   meta: [{ name: "robots", content: "noindex, nofollow" }],
@@ -56,6 +58,16 @@ export const useDashboardUser = routeLoader$(async (event) => {
   return user;
 });
 
+export const useStudentContinuar = routeLoader$(async (event) => {
+  const user = await getCurrentUsuario(event);
+  if (!user || user.rol !== "estudiante") return null;
+
+  const perfil = await getEstudianteByUsuarioId(user.id_usuario);
+  if (!perfil) return null;
+
+  return await getContinueLesson(perfil.id_estudiante);
+});
+
 const normalizePath = (path: string) => path.replace(/\/+$/, "") || "/";
 
 const isDashboardRoot = (href: string) =>
@@ -79,8 +91,18 @@ const logoutServer = server$(async function () {
 
 export default component$(() => {
   const user = useDashboardUser();
+  const continuar = useStudentContinuar();
   const loc = useLocation();
   const menuOpen = useSignal(false);
+
+  const isEstudiante = user.value.rol === "estudiante";
+  const continuarHref =
+    continuar.value &&
+    !loc.url.pathname.includes(
+      `/leccion/${continuar.value.id_leccion}`,
+    )
+      ? `/dashboard/estudiante/leccion/${continuar.value.id_leccion}/`
+      : null;
 
   const logout = $(async () => {
     await logoutServer();
@@ -227,7 +249,12 @@ export default component$(() => {
           </div>
         </aside>
 
-        <div class="min-w-0 flex-1">
+        <div
+          class={[
+            "min-w-0 flex-1",
+            isEstudiante ? "pb-20 lg:pb-0" : "",
+          ].join(" ")}
+        >
           <div
             class={[
               "mb-4 flex items-center justify-between rounded-2xl border px-4 py-3 shadow-sm lg:hidden",
@@ -298,6 +325,13 @@ export default component$(() => {
           <Slot />
         </div>
       </div>
+
+      {isEstudiante ? (
+        <StudentMobileNav
+          continuarHref={continuarHref}
+          continuarLabel={continuar.value?.titulo}
+        />
+      ) : null}
     </div>
   );
 });

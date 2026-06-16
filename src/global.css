@@ -105,6 +105,66 @@
       0 0 0 1px rgb(99 102 241 / 0.08),
       0 24px 48px -24px rgb(79 70 229 / 0.35);
   }
+
+  .moa-lesson-arena {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 10% 20%, rgb(56 189 248 / 0.12), transparent 40%),
+      radial-gradient(circle at 90% 10%, rgb(249 115 22 / 0.1), transparent 35%),
+      radial-gradient(circle at 80% 90%, rgb(124 58 237 / 0.1), transparent 40%),
+      linear-gradient(180deg, rgb(255 255 255 / 0.98), rgb(248 250 252 / 0.95));
+  }
+
+  .moa-pop {
+    animation: moa-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  .moa-shake {
+    animation: moa-shake 0.45s ease-in-out;
+  }
+
+  .moa-wiggle {
+    animation: moa-wiggle 0.6s ease-in-out infinite;
+  }
+
+  .moa-float-bubble {
+    animation: moa-float-bubble 5s ease-in-out infinite;
+  }
+
+  .moa-xp-bar {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .moa-xp-bar::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgb(255 255 255 / 0.45),
+      transparent
+    );
+    animation: moa-xp-shine 2.5s ease-in-out infinite;
+  }
+
+  .moa-option-card {
+    transition:
+      transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+      box-shadow 0.2s ease,
+      border-color 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  .moa-option-card:not(:disabled):hover {
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  .moa-option-card:not(:disabled):active {
+    transform: scale(0.97);
+  }
 }
 
 @keyframes moa-float {
@@ -139,11 +199,85 @@
   }
 }
 
+@keyframes moa-pop {
+  0% {
+    transform: scale(0.92);
+  }
+  40% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes moa-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+@keyframes moa-star-burst {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1.4) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+@keyframes moa-float-bubble {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translateY(-18px) scale(1.05);
+    opacity: 0.75;
+  }
+}
+
+@keyframes moa-xp-shine {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes moa-wiggle {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .moa-float,
   .moa-float-delayed,
   .moa-fade-up,
-  .moa-shine::after {
+  .moa-shine::after,
+  .moa-pop,
+  .moa-shake,
+  .moa-wiggle,
+  .moa-float-bubble,
+  .moa-xp-bar::after {
     animation: none;
   }
 

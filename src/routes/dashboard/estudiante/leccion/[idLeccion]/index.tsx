@@ -7,24 +7,35 @@ import {
   type DocumentHead,
 } from "@builder.io/qwik-city";
 import {
-  LuBookOpen,
-  LuCheck,
-  LuCheckCircle2,
-  LuCircle,
   LuPartyPopper,
   LuSkipForward,
 } from "@qwikest/icons/lucide";
 import {
+  LessonCelebrateBurst,
+  LessonExerciseArena,
+  LessonFeedbackBanner,
+  LessonGameHeader,
+  LessonGameStepper,
+  LessonMissionCompleteOverlay,
+  LessonSegmentIntro,
+  LessonSummaryCard,
+  LessonTrophyToast,
+  LessonVictoryModal,
+  LessonVocabReveal,
+} from "~/components/student/lesson-play";
+import {
   BreadcrumbTrail,
-  PerfectBadge,
-  ScoreBar,
-  SEGMENT_LABELS,
-  SegmentStepper,
 } from "~/components/student/student-ui";
-import { MAX_POINTS_PER_LESSON, SEGMENT_POINTS } from "~/lib/constants";
+import { MAX_POINTS_PER_LESSON } from "~/lib/constants";
 import type { LessonSegment } from "~/lib/constants";
 import { getCurrentUsuario } from "~/lib/auth";
 import { getDbClient, rowInt, rowStr } from "~/lib/db";
+import {
+  playCorrectSound,
+  playMissionCompleteSound,
+  playVictorySound,
+  playWrongSound,
+} from "~/lib/lesson-sounds";
 import {
   getEstudianteByUsuarioId,
   getNextLessonInfo,
@@ -140,6 +151,14 @@ export default component$(() => {
   const feedback = useSignal("");
   const feedbackOk = useSignal<boolean | null>(null);
   const saving = useSignal(false);
+  const celebrate = useSignal(false);
+  const missionOverlay = useSignal<{
+    segment: LessonSegment;
+    xp: number;
+    next: LessonSegment;
+  } | null>(null);
+  const victoryOpen = useSignal(false);
+  const trophyLapsos = useSignal<number[]>([]);
   const localProgress = useSignal<{
     puntaje_total: number;
     completada: boolean;
@@ -208,12 +227,16 @@ export default component$(() => {
       feedback.value = correct
         ? "¡Correcto! (modo repaso — no afecta tu puntaje)"
         : `Incorrecto. La respuesta correcta es "${correctAnswer}". (modo repaso)`;
+      celebrate.value = correct;
+      if (correct) playCorrectSound();
+      else playWrongSound();
       return;
     }
 
     saving.value = true;
     feedback.value = "";
     feedbackOk.value = null;
+    celebrate.value = false;
     try {
       const result = await saveProgressAction(
         page.lesson.id_leccion,
@@ -233,8 +256,12 @@ export default component$(() => {
 
       feedbackOk.value = result.correct;
       feedback.value = result.correct
-        ? "¡Excelente! Tu mejor puntaje se guardó."
-        : "Casi — puedes reintentar. Tu mejor puntaje se conserva.";
+        ? "¡Genial! Ganaste XP en esta misión."
+        : "Casi — intenta otra opción. Tu mejor puntaje se conserva.";
+      celebrate.value = result.correct;
+
+      if (result.correct) playCorrectSound();
+      else playWrongSound();
 
       const currentSegment = segment.value;
       localProgress.value = {
@@ -252,10 +279,24 @@ export default component$(() => {
           (currentSegment === "use" && result.correct),
       };
 
+      if (result.trophies_awarded.length > 0) {
+        trophyLapsos.value = result.trophies_awarded;
+      }
+
       if (result.correct) {
-        if (currentSegment === "presentation") segment.value = "practice";
-        else if (currentSegment === "practice") segment.value = "use";
-        selected.value = null;
+        if (result.newly_completed) {
+          playVictorySound();
+          victoryOpen.value = true;
+        } else {
+          playMissionCompleteSound();
+          const nextSegment: LessonSegment =
+            currentSegment === "presentation" ? "practice" : "use";
+          missionOverlay.value = {
+            segment: currentSegment,
+            xp: result.segment_xp,
+            next: nextSegment,
+          };
+        }
       }
     } finally {
       saving.value = false;
@@ -271,6 +312,33 @@ export default component$(() => {
     selected.value = null;
     feedback.value = "";
     feedbackOk.value = null;
+    celebrate.value = false;
+  });
+
+  const exercise =
+    segment.value === "presentation"
+      ? page.content.presentation.quiz
+      : segment.value === "practice"
+        ? page.content.practice
+        : page.content.use;
+  const segmentDone =
+    segment.value === "presentation"
+      ? progress.presentation_completada
+      : segment.value === "practice"
+        ? progress.practice_completada
+        : progress.use_completada;
+  const segmentLocked = segmentDone && !isReviewMode;
+  const answered = feedback.value.length > 0;
+
+  const dismissMissionOverlay = $(() => {
+    const overlay = missionOverlay.value;
+    if (!overlay) return;
+    segment.value = overlay.next;
+    selected.value = null;
+    feedback.value = "";
+    feedbackOk.value = null;
+    celebrate.value = false;
+    missionOverlay.value = null;
   });
 
   return (
@@ -286,37 +354,16 @@ export default component$(() => {
         ]}
       />
 
-      <section class="moa-lesson-glow overflow-hidden rounded-3xl border border-indigo-100/80 bg-white/95 p-6 backdrop-blur-sm sm:p-8">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-semibold uppercase tracking-wide text-indigo-600">
-              {page.lesson.competencia}
-            </p>
-            <h1 class="mt-1 text-3xl font-bold text-slate-900">
-              {page.lesson.titulo}
-            </h1>
-            <p class="mt-2 text-slate-600">
-              Lección {page.lesson.orden} · {SEGMENT_LABELS.presentation} (
-              {SEGMENT_POINTS.presentation}) + {SEGMENT_LABELS.practice} (
-              {SEGMENT_POINTS.practice}) + {SEGMENT_LABELS.use} ({SEGMENT_POINTS.use})
-            </p>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            {progress.es_perfecta ? <PerfectBadge /> : null}
-            {progress.completada ? (
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                <LuCheckCircle2 class="h-3.5 w-3.5" />
-                Completada
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <div class="mt-6">
-          <ScoreBar score={progress.puntaje_total} label="Tu puntaje en esta lección" />
-        </div>
-      </section>
+      <LessonGameHeader
+        competencia={page.lesson.competencia}
+        titulo={page.lesson.titulo}
+        orden={page.lesson.orden}
+        score={progress.puntaje_total}
+        esPerfecta={progress.es_perfecta}
+        completada={progress.completada}
+      />
 
-      <SegmentStepper
+      <LessonGameStepper
         current={segment.value}
         presentationDone={progress.presentation_completada}
         practiceDone={progress.practice_completada}
@@ -326,206 +373,71 @@ export default component$(() => {
       />
 
       {isReviewMode ? (
-        <p class="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
-          Modo repaso activo: puedes practicar de nuevo sin cambiar tu puntaje.
+        <p class="rounded-2xl border-2 border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800">
+          🎮 Modo repaso: practica sin perder tu puntaje.
         </p>
       ) : null}
 
-      <section class="rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-sm sm:p-8">
-        {segment.value === "presentation" ? (
-          <div class="mb-6 flex items-center gap-3">
-            <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
-              <LuBookOpen class="h-5 w-5" />
-            </div>
-            <div>
-              <h2 class="text-xl font-bold text-slate-900">
-                {SEGMENT_LABELS.presentation}
-              </h2>
-              <p class="text-sm text-slate-500">
-                Lee el objetivo y demuestra lo que sabes
-              </p>
-            </div>
-          </div>
-        ) : null}
-
-        {segment.value === "practice" ? (
-          <div class="mb-6">
-            <h2 class="text-xl font-bold text-slate-900">
-              {SEGMENT_LABELS.practice}
-            </h2>
-            <p class="text-sm text-slate-500">Elige la respuesta correcta</p>
-          </div>
-        ) : null}
-
-        {segment.value === "use" ? (
-          <div class="mb-6">
-            <h2 class="text-xl font-bold text-slate-900">{SEGMENT_LABELS.use}</h2>
-            <p class="text-sm text-slate-500">Aplica lo aprendido en contexto</p>
-          </div>
-        ) : null}
+      <section class="moa-lesson-arena relative rounded-3xl border border-indigo-100/80 p-6 shadow-lg sm:p-8">
+        <LessonCelebrateBurst active={celebrate.value} />
+        <LessonSegmentIntro segment={segment.value} />
 
         {segment.value === "presentation" ? (
-          <p class="rounded-2xl bg-gradient-to-br from-indigo-50 to-violet-50 p-5 text-lg leading-relaxed text-slate-700">
-            {page.content.presentation.summary}
-          </p>
-        ) : null}
-
-        {(() => {
-          const exercise =
-            segment.value === "presentation"
-              ? page.content.presentation.quiz
-              : segment.value === "practice"
-                ? page.content.practice
-                : page.content.use;
-          const segmentDone =
-            segment.value === "presentation"
-              ? progress.presentation_completada
-              : segment.value === "practice"
-                ? progress.practice_completada
-                : progress.use_completada;
-          const isReviewMode = progress.completada;
-          const segmentLocked = segmentDone && !isReviewMode;
-
-          return (
-            <div class={segment.value === "presentation" ? "mt-6" : ""}>
-              <p class="rounded-2xl border border-slate-100 bg-slate-50 p-5 text-lg font-medium text-slate-800">
-                {exercise.prompt}
-              </p>
-
-              <div
-                class="mt-5 grid gap-3"
-                role="radiogroup"
-                aria-label={exercise.prompt}
-              >
-                {exercise.options.map((option, index) => {
-                  const isSelected = selected.value === index;
-                  return (
-                    <button
-                      key={`${segment.value}-${option}`}
-                      type="button"
-                      role="radio"
-                      aria-checked={isSelected}
-                      disabled={saving.value || segmentLocked}
-                      onClick$={() => {
-                        selected.value = index;
-                      }}
-                      class={[
-                        "flex items-center gap-4 rounded-2xl border px-4 py-4 text-left transition",
-                        isSelected
-                          ? "border-indigo-400 bg-indigo-50 shadow-sm ring-2 ring-indigo-200"
-                          : "border-slate-200 bg-white hover:border-indigo-200 hover:bg-indigo-50/30",
-                        segmentLocked ? "opacity-70" : "",
-                      ].join(" ")}
-                    >
-                      <span
-                        class={[
-                          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-sm font-bold",
-                          isSelected
-                            ? "bg-indigo-600 text-white"
-                            : "bg-slate-100 text-slate-600",
-                        ].join(" ")}
-                      >
-                        {OPTION_LABELS[index] ?? index + 1}
-                      </span>
-                      <span class="font-medium text-slate-800">{option}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <button
-                type="button"
-                disabled={
-                  saving.value ||
-                  selected.value === null ||
-                  (segmentLocked && !isReviewMode)
-                }
-                onClick$={() => {
-                  if (selected.value === null) return;
-                  void submitSegment(selected.value, exercise.correctIndex);
-                }}
-                class="mt-6 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-3.5 font-semibold text-white shadow-lg shadow-indigo-500/25 transition hover:brightness-105 disabled:opacity-60"
-              >
-                {saving.value ? (
-                  "Guardando..."
-                ) : segmentLocked && !isReviewMode ? (
-                  <>
-                    <LuCheck class="h-5 w-5" />
-                    {SEGMENT_LABELS[segment.value]} completada
-                  </>
-                ) : isReviewMode ? (
-                  "Verificar respuesta"
-                ) : (
-                  "Comprobar respuesta"
-                )}
-              </button>
-            </div>
-          );
-        })()}
-
-        {feedback.value ? (
-          <div
-            role="status"
-            aria-live="polite"
-            class={[
-              "mt-6 flex items-start gap-3 rounded-2xl px-4 py-4 text-sm",
-              feedbackOk.value
-                ? "border border-emerald-200 bg-emerald-50 text-emerald-800"
-                : "border border-amber-200 bg-amber-50 text-amber-900",
-            ].join(" ")}
-          >
-            {feedbackOk.value ? (
-              <LuCheck class="mt-0.5 h-5 w-5 shrink-0" />
-            ) : (
-              <LuCircle class="mt-0.5 h-5 w-5 shrink-0" />
-            )}
-            <div>
-              <p>{feedback.value}</p>
-              {segment.value === "presentation" &&
-              feedbackOk.value &&
-              page.content.presentation.vocabulary.length > 0 ? (
-                <ul class="mt-3 grid gap-2 sm:grid-cols-2">
-                  {page.content.presentation.vocabulary.map((item) => (
-                    <li
-                      key={item.term}
-                      class="rounded-xl border border-emerald-200/80 bg-white/80 px-3 py-2"
-                    >
-                      <span class="font-semibold text-indigo-700">
-                        {item.term}
-                      </span>
-                      <span class="text-emerald-800"> — {item.meaning}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
+          <div class="mb-6">
+            <LessonSummaryCard summary={page.content.presentation.summary} />
           </div>
         ) : null}
+
+        <LessonExerciseArena
+          segment={segment.value}
+          prompt={exercise.prompt}
+          options={exercise.options}
+          selected={selected.value}
+          correctIndex={exercise.correctIndex}
+          answered={answered}
+          answerCorrect={feedbackOk.value}
+          disabled={saving.value || segmentLocked}
+          saving={saving.value}
+          segmentLocked={segmentLocked}
+          isReviewMode={isReviewMode}
+          celebrate={celebrate.value}
+          onSelect$={(index) => {
+            selected.value = index;
+            feedback.value = "";
+            feedbackOk.value = null;
+            celebrate.value = false;
+          }}
+          onSubmit$={() => {
+            if (selected.value === null) return;
+            void submitSegment(selected.value, exercise.correctIndex);
+          }}
+        />
+
+        <LessonFeedbackBanner
+          message={feedback.value}
+          ok={feedbackOk.value}
+          vocab={
+            segment.value === "presentation" && feedbackOk.value
+              ? page.content.presentation.vocabulary
+              : undefined
+          }
+        />
 
         {segment.value === "presentation" &&
         progress.presentation_completada &&
         !feedback.value &&
         page.content.presentation.vocabulary.length > 0 ? (
-          <div class="mt-6 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-4">
-            <p class="text-sm font-semibold text-indigo-800">Vocabulario de la lección</p>
-            <ul class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {page.content.presentation.vocabulary.map((item) => (
-                <li
-                  key={item.term}
-                  class="rounded-xl border border-indigo-100 bg-white px-3 py-2"
-                >
-                  <span class="font-semibold text-indigo-700">{item.term}</span>
-                  <span class="text-slate-600"> — {item.meaning}</span>
-                </li>
-              ))}
-            </ul>
+          <div class="mt-6 rounded-2xl border-2 border-indigo-100 bg-indigo-50/60 p-4">
+            <p class="text-sm font-black text-indigo-800">📚 Vocabulario de la lección</p>
+            <LessonVocabReveal items={page.content.presentation.vocabulary} />
           </div>
         ) : null}
       </section>
 
       {isReviewMode ? (
-        <div class="rounded-3xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-6 sm:p-8">
-          <p class="inline-flex items-center gap-2 text-lg font-bold text-emerald-900">
+        <div class="relative overflow-hidden rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 p-6 sm:p-8 moa-pop">
+          <div class="absolute -right-4 -top-4 text-6xl opacity-20">🏆</div>
+          <p class="inline-flex items-center gap-2 text-xl font-black text-emerald-900">
             <LuPartyPopper class="h-6 w-6" />
             ¡Lección completada!
           </p>
@@ -569,8 +481,42 @@ export default component$(() => {
           </div>
         </div>
       ) : null}
+
+      {missionOverlay.value ? (
+        <LessonMissionCompleteOverlay
+          segment={missionOverlay.value.segment}
+          xp={missionOverlay.value.xp}
+          onContinue$={dismissMissionOverlay}
+        />
+      ) : null}
+
+      {victoryOpen.value ? (
+        <LessonVictoryModal
+          titulo={page.lesson.titulo}
+          score={progress.puntaje_total}
+          esPerfecta={progress.es_perfecta}
+          nextLesson={page.next_lesson}
+          idCompetencia={page.lesson.id_competencia}
+          onCampus$={() => nav("/dashboard/estudiante/")}
+          onNext$={() =>
+            nav(
+              `/dashboard/estudiante/leccion/${page.next_lesson!.id_leccion}/`,
+            )
+          }
+          onCompetencia$={() =>
+            nav(
+              `/dashboard/estudiante/competencia/${page.lesson.id_competencia}/`,
+            )
+          }
+        />
+      ) : null}
+
+      <LessonTrophyToast
+        lapsos={trophyLapsos.value}
+        onDismiss$={$(() => {
+          trophyLapsos.value = [];
+        })}
+      />
     </div>
   );
 });
-
-const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];

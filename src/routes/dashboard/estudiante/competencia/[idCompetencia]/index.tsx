@@ -5,12 +5,10 @@ import {
   LuLock,
   LuPlay,
   LuRotateCcw,
-  LuStar,
 } from "@qwikest/icons/lucide";
 import {
   BreadcrumbTrail,
   LAPSO_COLORS,
-  ScoreBar,
 } from "~/components/student/student-ui";
 import { MAX_POINTS_PER_LESSON } from "~/lib/constants";
 import { getCurrentUsuario } from "~/lib/auth";
@@ -82,6 +80,27 @@ export const useCompetenciaPage = routeLoader$(async (event) => {
   };
 });
 
+const LAPSO_ISLAND: Record<
+  number,
+  { emoji: string; gradient: string; subtitle: string }
+> = {
+  1: {
+    emoji: "🏝️",
+    gradient: "from-sky-500 via-cyan-500 to-teal-500",
+    subtitle: "Isla del descubrimiento",
+  },
+  2: {
+    emoji: "🌋",
+    gradient: "from-violet-600 via-purple-600 to-fuchsia-600",
+    subtitle: "Volcán del reto",
+  },
+  3: {
+    emoji: "🏆",
+    gradient: "from-amber-500 via-orange-500 to-rose-500",
+    subtitle: "Camino al trofeo",
+  },
+};
+
 export const head: DocumentHead = ({ resolveValue }) => {
   const data = resolveValue(useCompetenciaPage);
   if (!data || "forbidden" in data || "locked" in data) {
@@ -138,6 +157,9 @@ export default component$(() => {
 
   const { competencia, lecciones, stats } = data.value;
   const colors = LAPSO_COLORS[competencia.lapso] ?? LAPSO_COLORS[1];
+  const island = LAPSO_ISLAND[competencia.lapso] ?? LAPSO_ISLAND[1];
+  const pctComp =
+    stats.total > 0 ? Math.round((stats.completadas / stats.total) * 100) : 0;
 
   return (
     <div class="space-y-8 moa-fade-up">
@@ -148,33 +170,53 @@ export default component$(() => {
         ]}
       />
 
-      <section class="overflow-hidden rounded-3xl border border-slate-200/80 bg-white/90 p-6 shadow-sm backdrop-blur-sm sm:p-8">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <span
-              class={[
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ring-1",
-                colors.bg,
-                colors.text,
-                colors.ring,
-              ].join(" ")}
-            >
-              <LuStar class="h-3.5 w-3.5" />
-              Lapso {competencia.lapso}
-            </span>
-            <h1 class="mt-3 text-3xl font-bold text-slate-900">
+      <section
+        class={[
+          "relative overflow-hidden rounded-3xl p-6 text-white shadow-xl sm:p-8",
+          `bg-gradient-to-br ${island.gradient}`,
+        ].join(" ")}
+      >
+        <div class="pointer-events-none absolute -right-10 -top-10 text-[8rem] opacity-20">
+          {island.emoji}
+        </div>
+        <div class="pointer-events-none absolute bottom-0 left-1/4 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+
+        <div class="relative flex flex-wrap items-start justify-between gap-6">
+          <div class="min-w-0">
+            <p class="text-sm font-bold uppercase tracking-wide text-white/80">
+              {island.subtitle} · Lapso {competencia.lapso}
+            </p>
+            <h1 class="mt-2 text-3xl font-black sm:text-4xl">
               {competencia.titulo}
             </h1>
-            <p class="mt-2 text-slate-600">
-              {stats.completadas}/{stats.total} lecciones completadas en esta
-              competencia
+            <p class="mt-3 max-w-lg text-white/90">
+              {stats.completadas}/{stats.total} lecciones completadas ·{" "}
+              {pctComp}% de la isla explorada
             </p>
           </div>
-          <div class="min-w-[200px] flex-1 sm:max-w-xs">
-            <ScoreBar
-              label="Puntos de la competencia"
-              score={stats.totalPts}
-              max={stats.maxPts}
+          <div class="flex flex-col items-center gap-2">
+            <span class="text-6xl drop-shadow-lg">{island.emoji}</span>
+            <span class="rounded-full bg-white/20 px-3 py-1 text-sm font-black backdrop-blur">
+              {pctComp}%
+            </span>
+          </div>
+        </div>
+
+        <div class="relative mt-6">
+          <div class="mb-2 flex justify-between text-sm font-bold text-white/90">
+            <span>Puntos de la competencia</span>
+            <span>{stats.totalPts}/{stats.maxPts}</span>
+          </div>
+          <div class="h-4 overflow-hidden rounded-full bg-white/20 ring-1 ring-white/30">
+            <div
+              class="h-full rounded-full bg-white/90 transition-all duration-700"
+              style={{
+                width: `${
+                  stats.maxPts > 0
+                    ? Math.round((stats.totalPts / stats.maxPts) * 100)
+                    : 0
+                }%`,
+              }}
             />
           </div>
         </div>
