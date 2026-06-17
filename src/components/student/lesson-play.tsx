@@ -208,19 +208,28 @@ export const LessonGameStepper = component$(
     presentationDone: boolean;
     practiceDone: boolean;
     useDone: boolean;
+    presentationPerfect?: boolean;
+    practicePerfect?: boolean;
+    usePerfect?: boolean;
     reviewMode?: boolean;
     onSelect$: (segment: LessonSegment) => void;
   }) => {
     const segments: LessonSegment[] = ["presentation", "practice", "use"];
+    const passed = {
+      presentation:
+        props.presentationDone || props.presentationPerfect === true,
+      practice: props.practiceDone || props.practicePerfect === true,
+      use: props.useDone || props.usePerfect === true,
+    };
     const unlocked = {
       presentation: true,
-      practice: props.reviewMode || props.presentationDone,
-      use: props.reviewMode || props.practiceDone,
+      practice: props.reviewMode || passed.presentation,
+      use: props.reviewMode || passed.practice,
     };
     const done = {
-      presentation: props.presentationDone,
-      practice: props.practiceDone,
-      use: props.useDone,
+      presentation: passed.presentation,
+      practice: passed.practice,
+      use: passed.use,
     };
 
     return (

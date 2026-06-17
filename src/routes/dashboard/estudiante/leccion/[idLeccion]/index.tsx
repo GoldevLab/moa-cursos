@@ -265,6 +265,25 @@ export default component$(() => {
   } | null>(null);
 
   useTask$(({ track }) => {
+    const page = data.value;
+    if (!page || page.locked) return;
+    track(() => page.lesson.id_leccion);
+
+    // Al cambiar de lección (p. ej. "Siguiente" en el modal), limpiar estado local
+    // para que no quede el modal ni el progreso de la lección anterior.
+    victoryOpen.value = false;
+    segmentReady.value = false;
+    localProgress.value = null;
+    selected.value = null;
+    feedback.value = "";
+    feedbackOk.value = null;
+    celebrate.value = false;
+    saving.value = false;
+    missionOverlay.value = null;
+    trophyLapsos.value = [];
+  });
+
+  useTask$(({ track }) => {
     track(() => data.value);
     if (!data.value || data.value.locked || segmentReady.value) return;
 
@@ -405,9 +424,18 @@ export default component$(() => {
         puntaje_total: result.puntaje_total,
         completada: result.completada,
         es_perfecta: result.es_perfecta,
-        presentation_completada: result.presentation_completada,
-        practice_completada: result.practice_completada,
-        use_completada: result.use_completada,
+        presentation_completada:
+          result.presentation_completada ||
+          (currentSegment === "presentation" && result.segment_perfect) ||
+          progress.presentation_completada,
+        practice_completada:
+          result.practice_completada ||
+          (currentSegment === "practice" && result.segment_perfect) ||
+          progress.practice_completada,
+        use_completada:
+          result.use_completada ||
+          (currentSegment === "use" && result.segment_perfect) ||
+          progress.use_completada,
         presentation_perfect:
           progress.presentation_perfect ||
           (currentSegment === "presentation" && result.segment_perfect),
@@ -505,9 +533,13 @@ export default component$(() => {
           puntaje_total: result.puntaje_total,
           completada: result.completada,
           es_perfecta: result.es_perfecta,
-          presentation_completada: result.presentation_completada,
-          practice_completada: result.practice_completada,
-          use_completada: result.use_completada,
+          presentation_completada:
+            result.presentation_completada || progress.presentation_completada,
+          practice_completada:
+            result.practice_completada ||
+            result.segment_perfect ||
+            progress.practice_completada,
+          use_completada: result.use_completada || progress.use_completada,
           presentation_perfect: progress.presentation_perfect,
           practice_perfect:
             progress.practice_perfect || result.segment_perfect,
@@ -539,9 +571,16 @@ export default component$(() => {
   );
 
   const selectSegment = $((next: LessonSegment) => {
-    if (!isReviewMode) {
-      if (next === "practice" && !progress.presentation_completada) return;
-      if (next === "use" && !progress.practice_completada) return;
+    const pageData = data.value;
+    if (!pageData || pageData.locked) return;
+    const p = localProgress.value ?? pageData.progress;
+    const review = p.completada;
+
+    if (!review) {
+      const presPassed = p.presentation_completada || p.presentation_perfect;
+      const pracPassed = p.practice_completada || p.practice_perfect;
+      if (next === "practice" && !presPassed) return;
+      if (next === "use" && !pracPassed) return;
     }
     segment.value = next;
     selected.value = null;
@@ -587,6 +626,12 @@ export default component$(() => {
     missionOverlay.value = null;
   });
 
+  const dismissVictoryAnd = $((href: string) => {
+    victoryOpen.value = false;
+    missionOverlay.value = null;
+    void nav(href);
+  });
+
   return (
     <div class="space-y-6 moa-fade-up">
       <BreadcrumbTrail
@@ -614,6 +659,9 @@ export default component$(() => {
         presentationDone={progress.presentation_completada}
         practiceDone={progress.practice_completada}
         useDone={progress.use_completada}
+        presentationPerfect={progress.presentation_perfect}
+        practicePerfect={progress.practice_perfect}
+        usePerfect={progress.use_perfect}
         reviewMode={isReviewMode}
         onSelect$={selectSegment}
       />
@@ -788,14 +836,14 @@ export default component$(() => {
           esPerfecta={progress.es_perfecta}
           nextLesson={page.next_lesson}
           idCompetencia={page.lesson.id_competencia}
-          onCampus$={() => nav("/dashboard/estudiante/")}
+          onCampus$={() => dismissVictoryAnd("/dashboard/estudiante/")}
           onNext$={() =>
-            nav(
+            dismissVictoryAnd(
               `/dashboard/estudiante/leccion/${page.next_lesson!.id_leccion}/`,
             )
           }
           onCompetencia$={() =>
-            nav(
+            dismissVictoryAnd(
               `/dashboard/estudiante/competencia/${page.lesson.id_competencia}/`,
             )
           }

@@ -36,9 +36,17 @@ export type LessonProgressState = {
 export const normalizeLessonProgress = (
   raw: Record<string, unknown>,
 ): LessonProgressState => {
-  const presentation_completada = rowInt(raw.presentation_completada) === 1;
-  const practice_completada = rowInt(raw.practice_completada) === 1;
-  const use_completada = rowInt(raw.use_completada) === 1;
+  const presentation_score = rowInt(raw.presentation_score);
+  const practice_score = rowInt(raw.practice_score);
+  const use_score = rowInt(raw.use_score);
+  // Un segmento cuenta como hecho si tiene puntaje guardado O el flag en BD.
+  // Evita bloquear la siguiente misión cuando el puntaje existe pero el flag no.
+  const presentation_completada =
+    rowInt(raw.presentation_completada) === 1 || presentation_score > 0;
+  const practice_completada =
+    rowInt(raw.practice_completada) === 1 || practice_score > 0;
+  const use_completada =
+    rowInt(raw.use_completada) === 1 || use_score > 0;
   const puntaje_total = rowInt(raw.puntaje_total);
   const allSegmentsDone =
     presentation_completada && practice_completada && use_completada;
@@ -51,10 +59,9 @@ export const normalizeLessonProgress = (
     presentation_completada,
     practice_completada,
     use_completada,
-    presentation_perfect:
-      rowInt(raw.presentation_score) >= SEGMENT_POINTS.presentation,
-    practice_perfect: rowInt(raw.practice_score) >= SEGMENT_POINTS.practice,
-    use_perfect: rowInt(raw.use_score) >= SEGMENT_POINTS.use,
+    presentation_perfect: presentation_score >= SEGMENT_POINTS.presentation,
+    practice_perfect: practice_score >= SEGMENT_POINTS.practice,
+    use_perfect: use_score >= SEGMENT_POINTS.use,
     puntaje_total,
     completada,
     es_perfecta,
@@ -81,8 +88,17 @@ export const reconcileLessonProgressInDb = async (
   const normalized = normalizeLessonProgress(row);
   const storedCompletada = rowInt(row.completada) === 1;
   const storedPerfecta = rowInt(row.es_perfecta) === 1;
+  const storedPresentationDone = rowInt(row.presentation_completada) === 1;
+  const storedPracticeDone = rowInt(row.practice_completada) === 1;
+  const storedUseDone = rowInt(row.use_completada) === 1;
+
+  const flagsNeedSync =
+    storedPresentationDone !== normalized.presentation_completada ||
+    storedPracticeDone !== normalized.practice_completada ||
+    storedUseDone !== normalized.use_completada;
 
   if (
+    !flagsNeedSync &&
     storedCompletada === normalized.completada &&
     storedPerfecta === normalized.es_perfecta
   ) {
@@ -91,9 +107,16 @@ export const reconcileLessonProgressInDb = async (
 
   await client.execute({
     sql: `UPDATE progreso_leccion
-          SET completada = ?, es_perfecta = ?
+          SET presentation_completada = ?,
+              practice_completada = ?,
+              use_completada = ?,
+              completada = ?,
+              es_perfecta = ?
           WHERE id_estudiante = ? AND id_leccion = ?`,
     args: [
+      normalized.presentation_completada ? 1 : 0,
+      normalized.practice_completada ? 1 : 0,
+      normalized.use_completada ? 1 : 0,
       normalized.completada ? 1 : 0,
       normalized.es_perfecta ? 1 : 0,
       idEstudiante,
@@ -112,16 +135,18 @@ export const getLessonSegmentState = async (
   await ensureMoaSchema();
   const client = getDbClient();
   const res = await client.execute({
-    sql: `SELECT presentation_completada, practice_completada, use_completada
+    sql: `SELECT presentation_completada, practice_completada, use_completada,
+                 presentation_score, practice_score, use_score
           FROM progreso_leccion
           WHERE id_estudiante = ? AND id_leccion = ? LIMIT 1`,
     args: [idEstudiante, idLeccion],
   });
   const row = res.rows[0];
+  const normalized = normalizeLessonProgress(row ?? {});
   return {
-    presentation_completada: rowInt(row?.presentation_completada) === 1,
-    practice_completada: rowInt(row?.practice_completada) === 1,
-    use_completada: rowInt(row?.use_completada) === 1,
+    presentation_completada: normalized.presentation_completada,
+    practice_completada: normalized.practice_completada,
+    use_completada: normalized.use_completada,
   };
 };
 
