@@ -1,8 +1,8 @@
+import { EXTRA_EMOJI } from "./lesson-emojis-extra";
+
 const EMOJI_MAP: Record<string, string> = {
   hello: "👋",
   hola: "👋",
-  goodbye: "👋",
-  adiós: "👋",
   please: "🙏",
   "por favor": "🙏",
   thanks: "🙌",
@@ -97,11 +97,119 @@ const EMOJI_MAP: Record<string, string> = {
   escribir: "✍️",
   listen: "👂",
   escuchar: "👂",
+  ...EXTRA_EMOJI,
+  lesson: "📒",
+  lección: "📒",
+  goodbye: "✌️",
+  adiós: "✌️",
+  hi: "🙂",
+  bye: "✌️",
 };
 
 export const getOptionEmoji = (text: string): string => {
   const key = text.trim().toLowerCase();
   return EMOJI_MAP[key] ?? "✨";
+};
+
+/** Emojis alternativos cuando dos opciones de la misma pregunta comparten icono. */
+const TERM_EMOJI_ALTS: Record<string, string[]> = {
+  lesson: ["📒", "📖", "🎓"],
+  lección: ["📒", "📖", "🎓"],
+  read: ["📖", "📕", "👓"],
+  leer: ["📖", "📕", "👓"],
+  hello: ["👋", "🙂"],
+  hola: ["👋", "🙂"],
+  goodbye: ["✌️", "👋"],
+  adiós: ["✌️", "👋"],
+  hi: ["🙂", "👋"],
+  bye: ["✌️", "👋"],
+  good: ["👍", "✅"],
+  bueno: ["👍", "✅"],
+  well: ["💪", "👍"],
+  cousin: ["🧑", "👦", "🧒"],
+  primo: ["🧑", "👦", "🧒"],
+  child: ["🧒", "👶"],
+  niño: ["🧒", "👶"],
+  kid: ["👶", "🧒"],
+  son: ["👦", "🧒"],
+  hijo: ["👦", "🧒"],
+  brother: ["👦", "🧔"],
+  hermano: ["👦", "🧔"],
+  pet: ["🐾", "🐶"],
+  mascota: ["🐾", "🐶"],
+  tail: ["🦴", "🐕"],
+  cola: ["🦴", "🐕"],
+  paw: ["🐾", "🐱"],
+  pata: ["🐾", "🐱"],
+  coat: ["🧥", "🦺"],
+  abrigo: ["🧥", "🦺"],
+  jacket: ["🦺", "🧥"],
+  chaqueta: ["🦺", "🧥"],
+  room: ["🚪", "🛏️"],
+  habitación: ["🚪", "🛏️"],
+  bed: ["🛏️", "💤"],
+  cama: ["🛏️", "💤"],
+  live: ["🏡", "🏠"],
+  roof: ["🏚️", "🏠"],
+  techo: ["🏚️", "🏠"],
+  river: ["🌊", "🏞️"],
+  río: ["🌊", "🏞️"],
+  lake: ["💧", "🏞️"],
+  lago: ["💧", "🏞️"],
+  mountain: ["⛰️", "🏔️"],
+  montaña: ["⛰️", "🏔️"],
+  hill: ["🌄", "⛰️"],
+  colina: ["🌄", "⛰️"],
+  beach: ["🏖️", "🌊"],
+  playa: ["🏖️", "🌊"],
+  sand: ["🏝️", "🏖️"],
+  arena: ["🏝️", "🏖️"],
+  plant: ["🪴", "🌱"],
+  planta: ["🪴", "🌱"],
+  seed: ["🌰", "🌱"],
+  semilla: ["🌰", "🌱"],
+  clean: ["🧹", "🧼"],
+  limpiar: ["🧹", "🧼"],
+  wash: ["🫧", "🧼"],
+  lavar: ["🫧", "🧼"],
+  cook: ["👨‍🍳", "🍳"],
+  cocinar: ["👨‍🍳", "🍳"],
+};
+
+const FALLBACK_EMOJI_POOL = [
+  "⭐",
+  "🌟",
+  "✨",
+  "💫",
+  "🎯",
+  "🎨",
+  "🎵",
+  "🎈",
+  "🍀",
+  "🔷",
+  "🔶",
+  "💎",
+  "🌈",
+  "🔔",
+  "📌",
+];
+
+/** Una emoji distinta por opción (evita confundir Lesson/Read con el mismo 📖). */
+export const getDistinctOptionEmojisForChoices = (
+  options: string[],
+): string[] => {
+  const used = new Set<string>();
+  return options.map((option) => {
+    const key = option.trim().toLowerCase();
+    const candidates = [
+      getOptionEmoji(option),
+      ...(TERM_EMOJI_ALTS[key] ?? []),
+      ...FALLBACK_EMOJI_POOL,
+    ];
+    const emoji = candidates.find((item) => !used.has(item)) ?? "✨";
+    used.add(emoji);
+    return emoji;
+  });
 };
 
 export const SEGMENT_MASCOT: Record<string, { emoji: string; title: string; hint: string }> = {

@@ -3,6 +3,7 @@ import {
   Link,
   routeLoader$,
   server$,
+  useLocation,
   useNavigate,
   type DocumentHead,
 } from "@builder.io/qwik-city";
@@ -12,7 +13,6 @@ import {
 } from "@qwikest/icons/lucide";
 import {
   LessonCelebrateBurst,
-  LessonExerciseArena,
   LessonFeedbackBanner,
   LessonGameHeader,
   LessonGameStepper,
@@ -23,8 +23,10 @@ import {
   LessonVictoryModal,
   LessonVocabReveal,
 } from "~/components/student/lesson-play";
-import { MatchPairsGame } from "~/components/student/match-pairs-game";
-import { MemoryMatchGame } from "~/components/student/memory-match-game";
+import {
+  buildSegmentGameRounds,
+  LessonSegmentGameArena,
+} from "~/components/student/lesson-segment-games";
 import {
   BreadcrumbTrail,
 } from "~/components/student/student-ui";
@@ -50,19 +52,36 @@ import {
 } from "~/lib/progress";
 import {
   getLessonContent,
-  scoreForSegment,
+  getLessonUseContext,
 } from "~/lib/lesson-content";
-import { gradeLessonAnswer, resolveSegmentExercise } from "~/lib/lesson-grading";
+import { getLessonPlan } from "~/lib/lesson-vocabulary";
 import {
-  PRACTICE_GAME_UI,
-  buildMatchPairs,
-  buildMemoryPairs,
-  getPracticeGameType,
-  gradeMatchPairs,
+  gameSeedForLesson,
+  getSegmentGameType,
+  getSegmentGameUi,
+  gradeGameSubmission,
+  isGameSubmissionPerfect,
   scoreFromRatio,
+  type GameSubmission,
 } from "~/lib/lesson-games";
 import { ServerAuthError, requireEstudianteProfile } from "~/lib/server-auth";
 import { ensureMoaSchema } from "~/lib/schema";
+
+const LESSON_FRESH_START_KEY = "moa-lesson-fresh-start";
+
+const markLessonFreshStart = (idLeccion: number) => {
+  if (typeof sessionStorage !== "undefined") {
+    sessionStorage.setItem(LESSON_FRESH_START_KEY, String(idLeccion));
+  }
+};
+
+const consumeLessonFreshStart = (idLeccion: number): boolean => {
+  if (typeof sessionStorage === "undefined") return false;
+  const stored = sessionStorage.getItem(LESSON_FRESH_START_KEY);
+  if (stored !== String(idLeccion)) return false;
+  sessionStorage.removeItem(LESSON_FRESH_START_KEY);
+  return true;
+};
 
 export const useLessonPage = routeLoader$(async (event) => {
   await ensureMoaSchema();
@@ -103,6 +122,7 @@ export const useLessonPage = routeLoader$(async (event) => {
 
   const content = await getLessonContent(idLeccion, rowStr(row.titulo));
   const nextLesson = await getNextLessonInfo(idLeccion);
+  const useSentence = getLessonUseContext(idLeccion).sentence;
 
   return {
     locked: false as const,
@@ -116,14 +136,15 @@ export const useLessonPage = routeLoader$(async (event) => {
     },
     progress: normalizedProgress,
     content,
+    use_sentence: useSentence,
     next_lesson: nextLesson,
   };
 });
 
-const saveProgressAction = server$(async function (
+const saveGameProgressAction = server$(async function (
   idLeccion: number,
   segment: LessonSegment,
-  selectedIndex: number,
+  submission: GameSubmission,
 ) {
   try {
     const { perfil } = await requireEstudianteProfile(this);
@@ -131,8 +152,8 @@ const saveProgressAction = server$(async function (
     if (!unlocked) {
       return { ok: false as const, reason: "locked" as const };
     }
+    const gameType = getSegmentGameType(segment, idLeccion);
 
-    // Respeta el orden de misiones: práctica exige presentación, uso exige práctica.
     const prev = await getLessonSegmentState(perfil.id_estudiante, idLeccion);
     if (segment === "practice" && !prev.presentation_completada) {
       return { ok: false as const, reason: "order" as const };
@@ -148,67 +169,19 @@ const saveProgressAction = server$(async function (
     });
     const titulo = rowStr(lessonRes.rows[0]?.titulo) || `Lección ${idLeccion}`;
     const content = await getLessonContent(idLeccion, titulo);
-    const grade = gradeLessonAnswer(content, segment, selectedIndex);
-    if (!grade) {
-      return { ok: false as const, reason: "invalid" as const };
-    }
+    const useSentence =
+      segment === "use"
+        ? getLessonUseContext(idLeccion).sentence
+        : undefined;
 
-    const correct = grade.correct;
-    const score = scoreForSegment(segment, correct);
-    const result = await saveSegmentProgress({
-      idEstudiante: perfil.id_estudiante,
-      idLeccion,
+    const ratio = gradeGameSubmission(
       segment,
-      score,
-    });
-    return { ok: true as const, ...result, correct };
-  } catch (error) {
-    if (error instanceof ServerAuthError) {
-      return { ok: false as const, reason: error.code };
-    }
-    throw error;
-  }
-});
-
-const saveGameProgressAction = server$(async function (
-  idLeccion: number,
-  matches: Record<string, string> | null,
-) {
-  try {
-    const { perfil } = await requireEstudianteProfile(this);
-    const unlocked = await isLessonUnlocked(perfil.id_estudiante, idLeccion);
-    if (!unlocked) {
-      return { ok: false as const, reason: "locked" as const };
-    }
-    const gameType = getPracticeGameType(idLeccion);
-    if (!gameType) {
-      return { ok: false as const, reason: "invalid" as const };
-    }
-
-    // El juego está en Práctica: exige Presentación previa.
-    const prev = await getLessonSegmentState(perfil.id_estudiante, idLeccion);
-    if (!prev.presentation_completada) {
-      return { ok: false as const, reason: "order" as const };
-    }
-
-    const segment: LessonSegment = "practice";
-    const client = getDbClient();
-    const lessonRes = await client.execute({
-      sql: "SELECT titulo FROM leccion WHERE id_leccion = ? LIMIT 1",
-      args: [idLeccion],
-    });
-    const titulo = rowStr(lessonRes.rows[0]?.titulo) || `Lección ${idLeccion}`;
-    const content = await getLessonContent(idLeccion, titulo);
-
-    // El servidor recalcula el puntaje; nunca confía en un ratio del cliente.
-    let ratio: number;
-    if (gameType === "match_pairs") {
-      const pairs = buildMatchPairs(content.presentation.vocabulary);
-      ratio = gradeMatchPairs(pairs, matches ?? {});
-    } else {
-      // memory_match: solo se completa al encontrar todas las parejas.
-      ratio = 1;
-    }
+      gameType,
+      idLeccion,
+      submission,
+      content.presentation.vocabulary,
+      useSentence,
+    );
 
     const score = scoreFromRatio(segment, ratio);
     const correct = score >= SEGMENT_POINTS[segment];
@@ -235,6 +208,7 @@ export const head: DocumentHead = ({ resolveValue }) => {
 
 export default component$(() => {
   const data = useLessonPage();
+  const loc = useLocation();
   const nav = useNavigate();
   const segment = useSignal<LessonSegment>("presentation");
   const segmentReady = useSignal(false);
@@ -263,31 +237,61 @@ export default component$(() => {
     practice_perfect: boolean;
     use_perfect: boolean;
   } | null>(null);
+  const prevLessonId = useSignal<number | null>(null);
 
   useTask$(({ track }) => {
     const page = data.value;
     if (!page || page.locked) return;
     track(() => page.lesson.id_leccion);
+    track(() => loc.url.searchParams.get("fresh"));
 
-    // Al cambiar de lección (p. ej. "Siguiente" en el modal), limpiar estado local
-    // para que no quede el modal ni el progreso de la lección anterior.
-    victoryOpen.value = false;
-    segmentReady.value = false;
-    localProgress.value = null;
-    selected.value = null;
-    feedback.value = "";
-    feedbackOk.value = null;
-    celebrate.value = false;
-    saving.value = false;
-    missionOverlay.value = null;
-    trophyLapsos.value = [];
-  });
+    const id = page.lesson.id_leccion;
+    const urlFreshStart = loc.url.searchParams.get("fresh") === "1";
 
-  useTask$(({ track }) => {
-    track(() => data.value);
-    if (!data.value || data.value.locked || segmentReady.value) return;
+    if (urlFreshStart && typeof history !== "undefined") {
+      history.replaceState({}, "", loc.url.pathname);
+    }
 
-    const p = data.value.progress;
+    if (consumeLessonFreshStart(id) || urlFreshStart) {
+      victoryOpen.value = false;
+      localProgress.value = null;
+      selected.value = null;
+      feedback.value = "";
+      feedbackOk.value = null;
+      celebrate.value = false;
+      saving.value = false;
+      missionOverlay.value = null;
+      trophyLapsos.value = [];
+      segment.value = "presentation";
+      prevLessonId.value = id;
+      segmentReady.value = true;
+      return;
+    }
+
+    const navigatedFromAnotherLesson =
+      prevLessonId.value !== null && prevLessonId.value !== id;
+
+    prevLessonId.value = id;
+
+    if (navigatedFromAnotherLesson) {
+      victoryOpen.value = false;
+      segmentReady.value = false;
+      localProgress.value = null;
+      selected.value = null;
+      feedback.value = "";
+      feedbackOk.value = null;
+      celebrate.value = false;
+      saving.value = false;
+      missionOverlay.value = null;
+      trophyLapsos.value = [];
+      segment.value = "presentation";
+      segmentReady.value = true;
+      return;
+    }
+
+    if (segmentReady.value) return;
+
+    const p = page.progress;
     if (p.completada) {
       segment.value = "presentation";
     } else if (!p.presentation_completada) {
@@ -327,172 +331,76 @@ export default component$(() => {
   const progress = localProgress.value ?? page.progress;
   const isReviewMode = progress.completada;
 
-  const getExerciseForSegment = (seg: LessonSegment) =>
-    resolveSegmentExercise(page.content, seg);
-
-  const submitSegment = $(async (selectedIndex: number) => {
-    // Desbloquea el audio dentro del gesto del usuario, antes de cualquier await.
-    primeLessonAudio();
-    const grade = gradeLessonAnswer(page.content, segment.value, selectedIndex);
-    if (!grade) {
-      feedbackOk.value = false;
-      feedback.value = "Respuesta no válida. Recarga la página e intenta de nuevo.";
-      return;
-    }
-
-    const correctIndex = grade.correctIndex;
-    const correctAnswer = grade.correctAnswer;
-
-    if (isReviewMode) {
-      const correct = grade.correct;
-      feedbackOk.value = correct;
-      feedback.value = correct
-        ? "¡Correcto! (modo repaso — no afecta tu puntaje)"
-        : `Incorrecto. La respuesta correcta es "${correctAnswer}". (modo repaso)`;
-      celebrate.value = correct;
-      if (correct) playCorrectSound();
-      else playWrongSound();
-
-      if (correct) {
-        const current = segment.value;
-        if (current === "presentation") {
-          playMissionCompleteSound();
-          missionOverlay.value = {
-            segment: current,
-            xp: 0,
-            next: "practice",
-            review: true,
-          };
-        } else if (current === "practice") {
-          playMissionCompleteSound();
-          missionOverlay.value = {
-            segment: current,
-            xp: 0,
-            next: "use",
-            review: true,
-          };
-        } else if (page.next_lesson) {
-          playVictorySound();
-          victoryOpen.value = true;
-        } else {
-          playMissionCompleteSound();
-          missionOverlay.value = {
-            segment: current,
-            xp: 0,
-            next: null,
-            review: true,
-            nextLabel: "Ver más lecciones →",
-          };
-        }
-      }
-      return;
-    }
-
-    saving.value = true;
-    feedback.value = "";
-    feedbackOk.value = null;
-    celebrate.value = false;
-    try {
-      const result = await saveProgressAction(
-        page.lesson.id_leccion,
-        segment.value,
-        selectedIndex,
-      );
-
-      if (!result.ok) {
-        feedbackOk.value = false;
-        feedback.value =
-          result.reason === "locked"
-            ? "Esta lección está bloqueada."
-            : result.reason === "invalid"
-              ? "Respuesta no válida. Recarga la página e intenta de nuevo."
-              : "No tienes permiso para guardar este progreso.";
-        return;
-      }
-
-      feedbackOk.value = result.correct;
-      feedback.value = result.correct
-        ? "¡Genial! Ganaste XP en esta misión."
-        : "Casi — intenta otra opción. Tu mejor puntaje se conserva.";
-      celebrate.value = result.correct;
-
-      if (result.correct) playCorrectSound();
-      else playWrongSound();
-
-      const currentSegment = segment.value;
-      localProgress.value = {
-        puntaje_total: result.puntaje_total,
-        completada: result.completada,
-        es_perfecta: result.es_perfecta,
-        presentation_completada:
-          result.presentation_completada ||
-          (currentSegment === "presentation" && result.segment_perfect) ||
-          progress.presentation_completada,
-        practice_completada:
-          result.practice_completada ||
-          (currentSegment === "practice" && result.segment_perfect) ||
-          progress.practice_completada,
-        use_completada:
-          result.use_completada ||
-          (currentSegment === "use" && result.segment_perfect) ||
-          progress.use_completada,
-        presentation_perfect:
-          progress.presentation_perfect ||
-          (currentSegment === "presentation" && result.segment_perfect),
-        practice_perfect:
-          progress.practice_perfect ||
-          (currentSegment === "practice" && result.segment_perfect),
-        use_perfect:
-          progress.use_perfect ||
-          (currentSegment === "use" && result.segment_perfect),
-      };
-
-      if (result.trophies_awarded.length > 0) {
-        trophyLapsos.value = result.trophies_awarded;
-      }
-
-      if (result.correct) {
-        if (result.newly_completed) {
-          playVictorySound();
-          victoryOpen.value = true;
-        } else {
-          playMissionCompleteSound();
-          const nextSegment: LessonSegment =
-            currentSegment === "presentation" ? "practice" : "use";
-          missionOverlay.value = {
-            segment: currentSegment,
-            xp: result.segment_xp,
-            next: nextSegment,
-          };
-        }
-      }
-    } finally {
-      saving.value = false;
-    }
+  const lessonPlan = getLessonPlan(page.lesson.id_leccion);
+  const segmentGameType = getSegmentGameType(
+    segment.value,
+    page.lesson.id_leccion,
+  );
+  const segmentGameSeed = gameSeedForLesson(
+    page.lesson.id_leccion,
+    segment.value,
+  );
+  const segmentGameUi = getSegmentGameUi(segment.value, segmentGameType);
+  const gameRounds = buildSegmentGameRounds({
+    segment: segment.value,
+    gameType: segmentGameType,
+    gameSeed: segmentGameSeed,
+    vocabulary: page.content.presentation.vocabulary,
+    focusIndex: lessonPlan.focusIndex,
+    themeIndex: lessonPlan.themeIndex,
+    lessonSlot: lessonPlan.lessonSlot,
+    focus: lessonPlan.focus,
+    useSentence: segment.value === "use" ? page.use_sentence : undefined,
   });
 
   const submitGameSegment = $(
-    async (scoreRatio: number, matches: Record<string, string> | null) => {
+    async (submission: GameSubmission) => {
       primeLessonAudio();
-      const perfect = scoreRatio >= 1;
+      const currentSegment = segment.value;
+      const currentGameType = getSegmentGameType(
+        currentSegment,
+        page.lesson.id_leccion,
+      );
+      const perfect = isGameSubmissionPerfect(
+        currentSegment,
+        currentGameType,
+        page.lesson.id_leccion,
+        submission,
+        page.content.presentation.vocabulary,
+        currentSegment === "use" ? page.use_sentence : undefined,
+      );
 
       if (isReviewMode) {
         feedbackOk.value = perfect;
         feedback.value = perfect
           ? "¡Excelente! (modo repaso — no afecta tu puntaje)"
-          : `Casi perfecto — ${Math.round(scoreRatio * 100)}% correcto. (modo repaso)`;
+          : "Casi perfecto. (modo repaso)";
         celebrate.value = perfect;
         if (perfect) playCorrectSound();
         else playWrongSound();
 
         if (perfect) {
-          playMissionCompleteSound();
-          missionOverlay.value = {
-            segment: "practice",
-            xp: 0,
-            next: "use",
-            review: true,
-          };
+          if (currentSegment === "use" && page.next_lesson) {
+            playVictorySound();
+            victoryOpen.value = true;
+          } else {
+            playMissionCompleteSound();
+            missionOverlay.value = {
+              segment: currentSegment,
+              xp: 0,
+              next:
+                currentSegment === "presentation"
+                  ? "practice"
+                  : currentSegment === "practice"
+                    ? "use"
+                    : null,
+              review: currentSegment === "use" && !page.next_lesson,
+              nextLabel:
+                currentSegment === "use" && !page.next_lesson
+                  ? "Ver más lecciones →"
+                  : undefined,
+            };
+          }
         }
         return;
       }
@@ -504,7 +412,8 @@ export default component$(() => {
       try {
         const result = await saveGameProgressAction(
           page.lesson.id_leccion,
-          matches,
+          currentSegment,
+          submission,
         );
 
         if (!result.ok) {
@@ -514,9 +423,7 @@ export default component$(() => {
               ? "Esta lección está bloqueada."
               : result.reason === "order"
                 ? "Primero completa la misión anterior."
-                : result.reason === "invalid"
-                  ? "No se pudo guardar el juego. Recarga la página."
-                  : "No tienes permiso para guardar este progreso.";
+                : "No tienes permiso para guardar este progreso.";
           return;
         }
 
@@ -526,7 +433,15 @@ export default component$(() => {
           ? "¡Genial! Misión perfecta."
           : passed
             ? `¡Bien! Llevas ${result.segment_xp} XP en esta misión. Repite para el máximo.`
-            : "Revisa las parejas e intenta otra vez.";
+            : submission.kind === "spelling_build"
+              ? "Revisa las letras e intenta otra vez."
+              : submission.kind === "sentence_order"
+                ? "Revisa el orden de las palabras e intenta otra vez."
+                : submission.kind === "meaning_choice"
+                  ? "Ese no era el significado correcto. ¡Intenta otra vez!"
+                  : submission.kind === "picture_choice"
+                    ? "Esa no era la opción correcta. ¡Intenta otra vez!"
+                    : "Revisa el juego e intenta otra vez.";
         celebrate.value = result.correct;
 
         localProgress.value = {
@@ -534,16 +449,26 @@ export default component$(() => {
           completada: result.completada,
           es_perfecta: result.es_perfecta,
           presentation_completada:
-            result.presentation_completada || progress.presentation_completada,
+            result.presentation_completada ||
+            (currentSegment === "presentation" && result.segment_perfect) ||
+            progress.presentation_completada,
           practice_completada:
             result.practice_completada ||
-            result.segment_perfect ||
+            (currentSegment === "practice" && result.segment_perfect) ||
             progress.practice_completada,
-          use_completada: result.use_completada || progress.use_completada,
-          presentation_perfect: progress.presentation_perfect,
+          use_completada:
+            result.use_completada ||
+            (currentSegment === "use" && result.segment_perfect) ||
+            progress.use_completada,
+          presentation_perfect:
+            progress.presentation_perfect ||
+            (currentSegment === "presentation" && result.segment_perfect),
           practice_perfect:
-            progress.practice_perfect || result.segment_perfect,
-          use_perfect: progress.use_perfect,
+            progress.practice_perfect ||
+            (currentSegment === "practice" && result.segment_perfect),
+          use_perfect:
+            progress.use_perfect ||
+            (currentSegment === "use" && result.segment_perfect),
         };
 
         if (result.trophies_awarded.length > 0) {
@@ -559,9 +484,14 @@ export default component$(() => {
         } else if (passed) {
           playMissionCompleteSound();
           missionOverlay.value = {
-            segment: "practice",
+            segment: currentSegment,
             xp: result.segment_xp,
-            next: "use",
+            next:
+              currentSegment === "presentation"
+                ? "practice"
+                : currentSegment === "practice"
+                  ? "use"
+                  : null,
           };
         }
       } finally {
@@ -590,18 +520,6 @@ export default component$(() => {
     missionOverlay.value = null;
   });
 
-  const exercise = getExerciseForSegment(segment.value);
-  const practiceGameType = getPracticeGameType(page.lesson.id_leccion);
-  const isPracticeGame =
-    segment.value === "practice" && practiceGameType !== null;
-  const practiceGameUi = practiceGameType
-    ? PRACTICE_GAME_UI[practiceGameType]
-    : null;
-  const gameSeed = page.lesson.id_leccion * 97 + 31;
-  const memoryPairs = buildMemoryPairs(page.content.presentation.vocabulary);
-  const matchPairs = buildMatchPairs(page.content.presentation.vocabulary);
-  // Un segmento se bloquea solo cuando ya está perfecto (puntaje máximo).
-  // Así se puede reintentar un juego parcial sin perder el mejor puntaje.
   const segmentPerfect =
     segment.value === "presentation"
       ? progress.presentation_perfect
@@ -609,7 +527,6 @@ export default component$(() => {
         ? progress.practice_perfect
         : progress.use_perfect;
   const segmentLocked = segmentPerfect && !isReviewMode;
-  const answered = feedback.value.length > 0;
 
   const dismissMissionOverlay = $(() => {
     const overlay = missionOverlay.value;
@@ -626,10 +543,24 @@ export default component$(() => {
     missionOverlay.value = null;
   });
 
-  const dismissVictoryAnd = $((href: string) => {
+  const dismissVictoryAnd = $((href: string, freshStartLessonId?: number) => {
     victoryOpen.value = false;
     missionOverlay.value = null;
-    void nav(href);
+    segment.value = "presentation";
+    segmentReady.value = false;
+    selected.value = null;
+    feedback.value = "";
+    feedbackOk.value = null;
+    celebrate.value = false;
+    localProgress.value = null;
+    if (freshStartLessonId) {
+      markLessonFreshStart(freshStartLessonId);
+    }
+    const dest =
+      freshStartLessonId && href.includes("/leccion/")
+        ? `/dashboard/estudiante/leccion/${freshStartLessonId}/?fresh=1`
+        : href;
+    void nav(dest);
   });
 
   return (
@@ -678,9 +609,9 @@ export default component$(() => {
         <LessonSegmentIntro
           key={segment.value}
           segment={segment.value}
-          gameEmoji={isPracticeGame ? practiceGameUi?.emoji : undefined}
-          gameTitle={isPracticeGame ? practiceGameUi?.title : undefined}
-          gameHint={isPracticeGame ? practiceGameUi?.hint : undefined}
+          gameEmoji={segmentGameUi.emoji}
+          gameTitle={segmentGameUi.title}
+          gameHint={segmentGameUi.hint}
         />
 
         {segment.value === "presentation" ? (
@@ -692,62 +623,21 @@ export default component$(() => {
           </div>
         ) : null}
 
-        {isPracticeGame && practiceGameType === "memory_match" ? (
-          <div class="rounded-2xl border-2 border-violet-200/80 bg-white/90 p-5 sm:p-6">
-            <p class="mb-4 inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-violet-800">
-              {practiceGameUi?.badge}
-            </p>
-            <MemoryMatchGame
-              key={`memory-${gameSeed}`}
-              pairs={memoryPairs}
-              seed={gameSeed}
-              disabled={saving.value || segmentLocked}
-              onComplete$={() => void submitGameSegment(1, null)}
-            />
-          </div>
-        ) : isPracticeGame && practiceGameType === "match_pairs" ? (
-          <div class="rounded-2xl border-2 border-violet-200/80 bg-white/90 p-5 sm:p-6">
-            <p class="mb-4 inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-black uppercase tracking-wide text-violet-800">
-              {practiceGameUi?.badge}
-            </p>
-            <MatchPairsGame
-              key={`match-${gameSeed}`}
-              pairs={matchPairs}
-              seed={gameSeed}
-              disabled={(segmentLocked && !isReviewMode) || saving.value}
-              saving={saving.value}
-              onSubmit$={(ratio, matches) =>
-                void submitGameSegment(ratio, matches)
-              }
-            />
-          </div>
-        ) : (
-          <LessonExerciseArena
-            key={`${segment.value}-${exercise.prompt}`}
-            segment={segment.value}
-            prompt={exercise.prompt}
-            options={exercise.options}
-            selected={selected.value}
-            correctIndex={exercise.correctIndex}
-            answered={answered}
-            answerCorrect={feedbackOk.value}
-            disabled={saving.value || segmentLocked}
-            saving={saving.value}
-            segmentLocked={segmentLocked}
-            isReviewMode={isReviewMode}
-            celebrate={celebrate.value}
-            onSelect$={(index) => {
-              selected.value = index;
-              feedback.value = "";
-              feedbackOk.value = null;
-              celebrate.value = false;
-            }}
-            onSubmit$={() => {
-              if (selected.value === null) return;
-              void submitSegment(selected.value);
-            }}
-          />
-        )}
+        <LessonSegmentGameArena
+          key={`${segment.value}-${segmentGameType}-${segmentGameSeed}`}
+          segment={segment.value}
+          gameType={segmentGameType}
+          gameSeed={segmentGameSeed}
+          disabled={(segmentLocked && !isReviewMode) || saving.value}
+          saving={saving.value}
+          pictureRound={gameRounds.pictureRound}
+          meaningRound={gameRounds.meaningRound}
+          memoryPairs={gameRounds.memoryPairs}
+          matchPairs={gameRounds.matchPairs}
+          spellingRound={gameRounds.spellingRound}
+          sentenceRound={gameRounds.sentenceRound}
+          onSubmit$={(submission) => void submitGameSegment(submission)}
+        />
 
         <LessonFeedbackBanner
           message={feedback.value}
@@ -799,8 +689,9 @@ export default component$(() => {
                 type="button"
                 class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
                 onClick$={() =>
-                  nav(
+                  dismissVictoryAnd(
                     `/dashboard/estudiante/leccion/${page.next_lesson!.id_leccion}/`,
+                    page.next_lesson!.id_leccion,
                   )
                 }
               >
@@ -840,6 +731,7 @@ export default component$(() => {
           onNext$={() =>
             dismissVictoryAnd(
               `/dashboard/estudiante/leccion/${page.next_lesson!.id_leccion}/`,
+              page.next_lesson!.id_leccion,
             )
           }
           onCompetencia$={() =>

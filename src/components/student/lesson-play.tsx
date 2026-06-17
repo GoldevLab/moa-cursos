@@ -13,7 +13,11 @@ import {
   SEGMENT_POINTS,
   type LessonSegment,
 } from "~/lib/constants";
-import { getOptionEmoji, SEGMENT_MASCOT } from "~/lib/lesson-emojis";
+import {
+  getDistinctOptionEmojisForChoices,
+  getOptionEmoji,
+  SEGMENT_MASCOT,
+} from "~/lib/lesson-emojis";
 import { speakLessonSummary, speakLessonText, speakWord } from "~/lib/lesson-sounds";
 import { SEGMENT_LABELS } from "./student-ui";
 
@@ -374,6 +378,7 @@ export const LessonExerciseArena = component$(
   }) => {
     const theme = SEGMENT_THEME[props.segment];
     const optionLang = props.segment === "presentation" ? "es" : "en";
+    const optionEmojis = getDistinctOptionEmojisForChoices(props.options);
 
     return (
       <div class="relative">
@@ -448,7 +453,7 @@ export const LessonExerciseArena = component$(
                 ].join(" ")}
               >
                 <span class="text-3xl drop-shadow-sm transition-transform group-hover:scale-110">
-                  {getOptionEmoji(option)}
+                  {optionEmojis[index]}
                 </span>
                 <span
                   class={[

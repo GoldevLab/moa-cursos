@@ -1,20 +1,76 @@
 import { SEGMENT_POINTS, type LessonSegment } from "./constants";
 import { getOptionEmoji } from "./lesson-emojis";
+import {
+  COMPETENCY_THEMES,
+  getLessonPlan,
+  type VocabItem,
+} from "./lesson-vocabulary";
 
-export type PracticeGameType = "memory_match" | "match_pairs";
+export type LessonGameType =
+  | "memory_match"
+  | "match_pairs"
+  | "picture_choice"
+  | "spelling_build"
+  | "meaning_choice"
+  | "sentence_order";
 
-/** Lecciones 2, 4, 6 y 8 de cada competencia usan minijuegos en Práctica. */
+/** @deprecated Use getSegmentGameType */
+export type PracticeGameType = Exclude<
+  LessonGameType,
+  "meaning_choice" | "sentence_order"
+>;
+
+const slotForLesson = (idLeccion: number) => ((idLeccion - 1) % 8) + 1;
+
+const PRESENTATION_GAMES: Record<number, LessonGameType> = {
+  1: "match_pairs",
+  2: "memory_match",
+  3: "spelling_build",
+  4: "meaning_choice",
+  5: "match_pairs",
+  6: "memory_match",
+  7: "spelling_build",
+  8: "meaning_choice",
+};
+
+const PRACTICE_GAMES: Record<number, LessonGameType> = {
+  1: "picture_choice",
+  2: "memory_match",
+  3: "spelling_build",
+  4: "match_pairs",
+  5: "picture_choice",
+  6: "memory_match",
+  7: "spelling_build",
+  8: "match_pairs",
+};
+
+const USE_GAMES: Record<number, LessonGameType> = {
+  1: "picture_choice",
+  2: "sentence_order",
+  3: "spelling_build",
+  4: "sentence_order",
+  5: "picture_choice",
+  6: "sentence_order",
+  7: "spelling_build",
+  8: "picture_choice",
+};
+
+export const getSegmentGameType = (
+  segment: LessonSegment,
+  idLeccion: number,
+): LessonGameType => {
+  const slot = slotForLesson(idLeccion);
+  if (segment === "presentation") return PRESENTATION_GAMES[slot];
+  if (segment === "practice") return PRACTICE_GAMES[slot];
+  return USE_GAMES[slot];
+};
+
 export const getPracticeGameType = (
   idLeccion: number,
 ): PracticeGameType | null => {
-  const ordenEnCompetencia = ((idLeccion - 1) % 8) + 1;
-  if (ordenEnCompetencia === 2 || ordenEnCompetencia === 6) {
-    return "memory_match";
-  }
-  if (ordenEnCompetencia === 4 || ordenEnCompetencia === 8) {
-    return "match_pairs";
-  }
-  return null;
+  const game = getSegmentGameType("practice", idLeccion);
+  if (game === "meaning_choice" || game === "sentence_order") return null;
+  return game;
 };
 
 export type MemoryPair = {
@@ -30,8 +86,66 @@ export type MatchPairItem = {
   meaning: string;
 };
 
+export type PictureChoiceOption = {
+  id: string;
+  emoji: string;
+  term: string;
+};
+
+export type MeaningChoiceOption = {
+  id: string;
+  meaning: string;
+};
+
+export type SpellingRound = {
+  answer: string;
+  letters: string[];
+  emoji: string;
+  meaning: string;
+  contextHint?: string;
+};
+
+export type SentenceOrderRound = {
+  prompt: string;
+  sentenceWithBlank: string;
+  shuffledWords: string[];
+  correctPhrase: string;
+  emoji: string;
+};
+
+export type GameSubmission =
+  | { kind: "match_pairs"; matches: Record<string, string> }
+  | { kind: "memory_match" }
+  | { kind: "picture_choice"; selectedTerm: string }
+  | { kind: "meaning_choice"; selectedMeaningId: string }
+  | { kind: "spelling_build"; built: string }
+  | { kind: "sentence_order"; built: string };
+
 const cap = (word: string) =>
   word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+
+export const fillUseSentenceBlank = (template: string, term: string): string =>
+  template.replace(/___+/g, cap(term));
+
+const pickThemeDistractor = (
+  vocabulary: VocabItem[],
+  themeIndex: number,
+  lessonSlot: number,
+) => {
+  const lessonTerms = new Set(
+    vocabulary.map((item) => item.term.toLowerCase()),
+  );
+  const theme = COMPETENCY_THEMES[themeIndex];
+  const distractorSlot = (lessonSlot + 1) % 8;
+  const distractorStart = distractorSlot * 3;
+  return (
+    theme.words
+      .slice(distractorStart, distractorStart + 3)
+      .find((item) => !lessonTerms.has(item.term.toLowerCase())) ??
+    theme.words.find((item) => !lessonTerms.has(item.term.toLowerCase())) ??
+    theme.words[0]
+  );
+};
 
 export const buildMemoryPairs = (
   vocabulary: { term: string; meaning: string }[],
@@ -40,6 +154,15 @@ export const buildMemoryPairs = (
     id: `m-${index}`,
     emoji: getOptionEmoji(item.term),
     term: cap(item.term),
+  }));
+
+export const buildMemoryMeaningPairs = (
+  vocabulary: { term: string; meaning: string }[],
+): MemoryPair[] =>
+  vocabulary.map((item, index) => ({
+    id: `m-${index}`,
+    emoji: getOptionEmoji(item.term),
+    term: item.meaning,
   }));
 
 export const buildMatchPairs = (
@@ -51,6 +174,141 @@ export const buildMatchPairs = (
     term: cap(item.term),
     meaning: item.meaning,
   }));
+
+export const buildPictureChoiceRound = (
+  vocabulary: VocabItem[],
+  focusIndex: number,
+  themeIndex: number,
+  lessonSlot: number,
+  seed: number,
+): { prompt: string; options: PictureChoiceOption[]; correctTerm: string } => {
+  const focus = vocabulary[focusIndex];
+  const distractor = pickThemeDistractor(vocabulary, themeIndex, lessonSlot);
+
+  const rawOptions: PictureChoiceOption[] = [
+    ...vocabulary.map((item) => ({
+      id: item.term.toLowerCase(),
+      emoji: getOptionEmoji(item.term),
+      term: cap(item.term),
+    })),
+    {
+      id: distractor.term.toLowerCase(),
+      emoji: getOptionEmoji(distractor.term),
+      term: cap(distractor.term),
+    },
+  ];
+
+  const options = fisherYatesShuffle(rawOptions, seed);
+  return {
+    prompt: `¿Cuál imagen es «${focus.meaning}»?`,
+    options,
+    correctTerm: focus.term.toLowerCase(),
+  };
+};
+
+export const buildMeaningChoiceRound = (
+  vocabulary: VocabItem[],
+  focusIndex: number,
+  themeIndex: number,
+  lessonSlot: number,
+  seed: number,
+) => {
+  const focus = vocabulary[focusIndex];
+  const distractor = pickThemeDistractor(vocabulary, themeIndex, lessonSlot);
+  const seen = new Set<string>();
+  const rawOptions: MeaningChoiceOption[] = [];
+  for (const item of vocabulary) {
+    const id = item.meaning.toLowerCase();
+    if (seen.has(id)) continue;
+    seen.add(id);
+    rawOptions.push({ id, meaning: item.meaning });
+  }
+  const distractorId = distractor.meaning.toLowerCase();
+  if (!seen.has(distractorId)) {
+    rawOptions.push({
+      id: distractorId,
+      meaning: distractor.meaning,
+    });
+  }
+  const options = fisherYatesShuffle(rawOptions, seed);
+  return {
+    prompt: `¿Qué significa "${cap(focus.term)}" en español?`,
+    emoji: getOptionEmoji(focus.term),
+    term: cap(focus.term),
+    options,
+    correctMeaningId: focus.meaning.toLowerCase(),
+  };
+};
+
+export const buildUsePictureRound = (
+  vocabulary: VocabItem[],
+  focusIndex: number,
+  themeIndex: number,
+  lessonSlot: number,
+  seed: number,
+  sentenceWithBlank: string,
+  meaningHint: string,
+) => {
+  const focus = vocabulary[focusIndex];
+  const distractor = pickThemeDistractor(vocabulary, themeIndex, lessonSlot);
+  const rawOptions: PictureChoiceOption[] = [
+    ...vocabulary.map((item) => ({
+      id: item.term.toLowerCase(),
+      emoji: getOptionEmoji(item.term),
+      term: cap(item.term),
+    })),
+    {
+      id: distractor.term.toLowerCase(),
+      emoji: getOptionEmoji(distractor.term),
+      term: cap(distractor.term),
+    },
+  ];
+  const options = fisherYatesShuffle(rawOptions, seed);
+  return {
+    prompt: `Usa «${meaningHint}» en inglés.`,
+    sentence: sentenceWithBlank,
+    options,
+    correctTerm: focus.term.toLowerCase(),
+  };
+};
+
+export const buildSpellingRound = (
+  focus: VocabItem,
+  seed: number,
+  contextHint?: string,
+): SpellingRound => {
+  const answer = focus.term.toLowerCase();
+  const decoys = "aeiourstlnm".split("").filter((ch) => !answer.includes(ch));
+  const extraCount = Math.min(3, Math.max(0, 8 - answer.length));
+  const letters = fisherYatesShuffle(
+    [...answer.split(""), ...decoys.slice(0, extraCount)],
+    seed,
+  );
+  return {
+    answer,
+    letters,
+    emoji: getOptionEmoji(focus.term),
+    meaning: focus.meaning,
+    contextHint,
+  };
+};
+
+export const buildSentenceOrderRound = (
+  sentenceFilled: string,
+  sentenceTemplate: string,
+  focusTerm: string,
+  meaning: string,
+  seed: number,
+): SentenceOrderRound => {
+  const words = sentenceFilled.replace(/\s+/g, " ").trim().split(" ");
+  return {
+    prompt: `Ordena la frase en inglés. Pista: «${meaning}»`,
+    sentenceWithBlank: sentenceTemplate,
+    shuffledWords: fisherYatesShuffle(words, seed),
+    correctPhrase: words.join(" "),
+    emoji: getOptionEmoji(focusTerm),
+  };
+};
 
 export const fisherYatesShuffle = <T>(items: T[], seed: number): T[] => {
   const arr = [...items];
@@ -84,15 +342,163 @@ export const gradeMatchPairs = (
   return correct / pairs.length;
 };
 
-export const PRACTICE_GAME_UI: Record<
-  PracticeGameType,
+export const gradePictureChoice = (
+  correctTerm: string,
+  selectedTerm: string,
+): number =>
+  correctTerm.trim().toLowerCase() === selectedTerm.trim().toLowerCase()
+    ? 1
+    : 0;
+
+export const gradeMeaningChoice = (
+  correctMeaningId: string,
+  selectedMeaningId: string,
+): number =>
+  correctMeaningId.trim().toLowerCase() ===
+  selectedMeaningId.trim().toLowerCase()
+    ? 1
+    : 0;
+
+export const gradeSpellingBuild = (
+  expectedTerm: string,
+  built: string,
+): number => {
+  const norm = (value: string) => value.trim().toLowerCase();
+  return norm(built) === norm(expectedTerm) ? 1 : 0;
+};
+
+export const gradeSentenceOrder = (
+  correctPhrase: string,
+  built: string,
+): number => {
+  const norm = (value: string) =>
+    value.trim().toLowerCase().replace(/\s+/g, " ");
+  return norm(built) === norm(correctPhrase) ? 1 : 0;
+};
+
+export const gameSeedForLesson = (idLeccion: number, segment: LessonSegment) =>
+  idLeccion * 97 + (segment === "presentation" ? 11 : segment === "practice" ? 31 : 53);
+
+export const gradeGameSubmission = (
+  segment: LessonSegment,
+  gameType: LessonGameType,
+  idLeccion: number,
+  submission: GameSubmission,
+  vocabulary: VocabItem[],
+  useSentence?: string,
+): number => {
+  const plan = getLessonPlan(idLeccion);
+  const seed = gameSeedForLesson(idLeccion, segment);
+
+  if (gameType === "match_pairs") {
+    if (submission.kind !== "match_pairs") return 0;
+    return gradeMatchPairs(buildMatchPairs(vocabulary), submission.matches);
+  }
+  if (gameType === "memory_match") {
+    if (submission.kind !== "memory_match") return 0;
+    return 1;
+  }
+  if (gameType === "picture_choice") {
+    if (submission.kind !== "picture_choice") return 0;
+    if (segment === "use" && useSentence) {
+      const round = buildUsePictureRound(
+        vocabulary,
+        plan.focusIndex,
+        plan.themeIndex,
+        plan.lessonSlot,
+        seed,
+        useSentence,
+        plan.focus.meaning,
+      );
+      return gradePictureChoice(round.correctTerm, submission.selectedTerm);
+    }
+    const round = buildPictureChoiceRound(
+      vocabulary,
+      plan.focusIndex,
+      plan.themeIndex,
+      plan.lessonSlot,
+      seed,
+    );
+    return gradePictureChoice(round.correctTerm, submission.selectedTerm);
+  }
+  if (gameType === "meaning_choice") {
+    if (submission.kind !== "meaning_choice") return 0;
+    const round = buildMeaningChoiceRound(
+      vocabulary,
+      plan.focusIndex,
+      plan.themeIndex,
+      plan.lessonSlot,
+      seed,
+    );
+    return gradeMeaningChoice(
+      round.correctMeaningId,
+      submission.selectedMeaningId,
+    );
+  }
+  if (gameType === "spelling_build") {
+    if (submission.kind !== "spelling_build") return 0;
+    return gradeSpellingBuild(plan.focus.term, submission.built);
+  }
+  if (gameType === "sentence_order") {
+    if (submission.kind !== "sentence_order") return 0;
+    if (!useSentence) return 0;
+    const filled = fillUseSentenceBlank(useSentence, plan.focus.term);
+    const round = buildSentenceOrderRound(
+      filled,
+      useSentence,
+      plan.focus.term,
+      plan.focus.meaning,
+      seed,
+    );
+    return gradeSentenceOrder(round.correctPhrase, submission.built);
+  }
+  return 0;
+};
+
+export const isGameSubmissionPerfect = (
+  segment: LessonSegment,
+  gameType: LessonGameType,
+  idLeccion: number,
+  submission: GameSubmission,
+  vocabulary: VocabItem[],
+  useSentence?: string,
+): boolean =>
+  gradeGameSubmission(
+    segment,
+    gameType,
+    idLeccion,
+    submission,
+    vocabulary,
+    useSentence,
+  ) >= 1;
+
+const GAME_UI_BASE: Record<
+  LessonGameType,
   { emoji: string; title: string; hint: string; badge: string }
 > = {
+  picture_choice: {
+    emoji: "🖼️",
+    title: "¡Elige la imagen!",
+    hint: "Lee la pista y toca el emoji correcto",
+    badge: "Imagen correcta",
+  },
+  meaning_choice: {
+    emoji: "💬",
+    title: "¡Adivina el significado!",
+    hint: "Mira la palabra en inglés y elige su traducción en español",
+    badge: "Significado correcto",
+  },
   memory_match: {
     emoji: "🧩",
     title: "¡Memoria MOA!",
-    hint: "Voltea las tarjetas y une cada emoji con su palabra en inglés",
+    hint: "Voltea las tarjetas y une cada pareja",
     badge: "Juego de memoria",
+  },
+  spelling_build: {
+    emoji: "🔤",
+    title: "¡Arma la palabra!",
+    hint: "Toca las letras en orden para escribir la palabra en inglés",
+    badge: "Ortografía",
   },
   match_pairs: {
     emoji: "🔗",
@@ -100,4 +506,49 @@ export const PRACTICE_GAME_UI: Record<
     hint: "Toca una palabra en inglés y luego su significado en español",
     badge: "Une las parejas",
   },
+  sentence_order: {
+    emoji: "🧱",
+    title: "¡Ordena la frase!",
+    hint: "Toca las palabras en el orden correcto para formar la oración",
+    badge: "Frase en orden",
+  },
+};
+
+export const getSegmentGameUi = (
+  segment: LessonSegment,
+  gameType: LessonGameType,
+) => {
+  const base = GAME_UI_BASE[gameType];
+  if (segment === "presentation" && gameType === "memory_match") {
+    return {
+      ...base,
+      hint: "Une cada emoji con su significado en español",
+    };
+  }
+  if (segment === "use" && gameType === "picture_choice") {
+    return {
+      ...base,
+      title: "¡Completa con la imagen!",
+      hint: "Lee la frase y elige la palabra en inglés que encaja",
+    };
+  }
+  if (segment === "use" && gameType === "spelling_build") {
+    return {
+      ...base,
+      title: "¡Escribe la palabra!",
+      hint: "Completa la frase escribiendo la palabra en inglés con las letras",
+    };
+  }
+  return base;
+};
+
+/** @deprecated Use getSegmentGameUi */
+export const PRACTICE_GAME_UI: Record<
+  PracticeGameType,
+  { emoji: string; title: string; hint: string; badge: string }
+> = {
+  picture_choice: GAME_UI_BASE.picture_choice,
+  memory_match: GAME_UI_BASE.memory_match,
+  spelling_build: GAME_UI_BASE.spelling_build,
+  match_pairs: GAME_UI_BASE.match_pairs,
 };

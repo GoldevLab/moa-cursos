@@ -1,6 +1,14 @@
 import { SEGMENT_POINTS, type LessonSegment } from "./constants";
 import { getDbClient, rowInt, rowStr } from "./db";
 import { ensureMoaSchema } from "./schema";
+import {
+  COMPETENCY_THEMES,
+  WORDS_PER_LESSON,
+  getLessonPlan,
+  type VocabItem,
+} from "./lesson-vocabulary";
+
+export { getLessonPlan };
 
 export type LessonExercise = {
   prompt: string;
@@ -28,100 +36,7 @@ export type LessonContentPayload = {
   use: LessonExercise;
 };
 
-const vocabularySets = [
-  [
-    { term: "hello", meaning: "hola" },
-    { term: "goodbye", meaning: "adiós" },
-    { term: "please", meaning: "por favor" },
-  ],
-  [
-    { term: "book", meaning: "libro" },
-    { term: "teacher", meaning: "profesor" },
-    { term: "student", meaning: "estudiante" },
-  ],
-  [
-    { term: "family", meaning: "familia" },
-    { term: "friend", meaning: "amigo" },
-    { term: "school", meaning: "escuela" },
-  ],
-  [
-    { term: "water", meaning: "agua" },
-    { term: "food", meaning: "comida" },
-    { term: "milk", meaning: "leche" },
-  ],
-  [
-    { term: "red", meaning: "rojo" },
-    { term: "blue", meaning: "azul" },
-    { term: "green", meaning: "verde" },
-  ],
-  [
-    { term: "cat", meaning: "gato" },
-    { term: "dog", meaning: "perro" },
-    { term: "bird", meaning: "pájaro" },
-  ],
-  [
-    { term: "mother", meaning: "madre" },
-    { term: "father", meaning: "padre" },
-    { term: "sister", meaning: "hermana" },
-  ],
-  [
-    { term: "house", meaning: "casa" },
-    { term: "room", meaning: "habitación" },
-    { term: "door", meaning: "puerta" },
-  ],
-  [
-    { term: "sun", meaning: "sol" },
-    { term: "rain", meaning: "lluvia" },
-    { term: "wind", meaning: "viento" },
-  ],
-  [
-    { term: "happy", meaning: "feliz" },
-    { term: "sad", meaning: "triste" },
-    { term: "tired", meaning: "cansado" },
-  ],
-  [
-    { term: "morning", meaning: "mañana" },
-    { term: "night", meaning: "noche" },
-    { term: "today", meaning: "hoy" },
-  ],
-  [
-    { term: "apple", meaning: "manzana" },
-    { term: "bread", meaning: "pan" },
-    { term: "rice", meaning: "arroz" },
-  ],
-  [
-    { term: "car", meaning: "carro" },
-    { term: "bus", meaning: "autobús" },
-    { term: "bike", meaning: "bicicleta" },
-  ],
-  [
-    { term: "one", meaning: "uno" },
-    { term: "two", meaning: "dos" },
-    { term: "three", meaning: "tres" },
-  ],
-  [
-    { term: "run", meaning: "correr" },
-    { term: "walk", meaning: "caminar" },
-    { term: "play", meaning: "jugar" },
-  ],
-  [
-    { term: "read", meaning: "leer" },
-    { term: "write", meaning: "escribir" },
-    { term: "listen", meaning: "escuchar" },
-  ],
-] as const;
-
-type VocabItem = { term: string; meaning: string };
-
-/** Reparte vocabulario y palabra foco; `variant` desambigua lecciones que comparten set. */
-export const getLessonPlan = (idLeccion: number) => {
-  const slot = idLeccion - 1;
-  const setIndex = Math.floor(slot / 3) % vocabularySets.length;
-  const focusIndex = slot % 3;
-  const variant = Math.floor(slot / 45) % 3;
-  const set = vocabularySets[setIndex];
-  return { slot, setIndex, focusIndex, variant, set, focus: set[focusIndex] };
-};
+/** Reparte vocabulario temático: ver lesson-vocabulary.ts */
 
 const QUIZ_PROMPTS = [
   (term: string) => `Selecciona el significado correcto de "${term}":`,
@@ -140,308 +55,445 @@ const vocabUseExercise = (
   focusIndex: number,
   prompt: string,
   distractor: string,
-): LessonExercise => ({
-  prompt,
-  options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), distractor],
-  correctIndex: focusIndex,
-});
+): LessonExercise => {
+  const options = [cap(set[0].term), cap(set[1].term), cap(set[2].term)];
+  const used = new Set(options.map((option) => option.toLowerCase()));
+  const extra = used.has(distractor.toLowerCase())
+    ? pickFallbackDistractor(used)
+    : distractor;
+  if (!used.has(extra.toLowerCase())) {
+    options.push(extra);
+  } else {
+    const fallback = pickFallbackDistractor(used);
+    if (!used.has(fallback.toLowerCase())) options.push(fallback);
+  }
+  return {
+    prompt,
+    options,
+    correctIndex: focusIndex,
+  };
+};
 
-/** Frases donde solo encaja una palabra del set; [set][foco][variante]. */
-const USE_CLUES: { sentence: string; distractor: string }[][][] = [
-  [
-    [
-      { sentence: "___ , how are you?", distractor: "Thanks" },
-      { sentence: "I say ___ when I meet friends.", distractor: "Thanks" },
-      { sentence: "___ , my name is Ana.", distractor: "Thanks" },
-    ],
-    [
-      { sentence: "Before I leave, I say ___ .", distractor: "Thanks" },
-      { sentence: "At night I wave and say ___ .", distractor: "Thanks" },
-      { sentence: "Time to go! I say ___ .", distractor: "Thanks" },
-    ],
-    [
-      { sentence: "Can I have water, ___ ?", distractor: "Thanks" },
-      { sentence: "___ pass me the book.", distractor: "Thanks" },
-      { sentence: "May I sit here? ___ ?", distractor: "Thanks" },
-    ],
-  ],
-  [
-    [
-      { sentence: "I read a ___ every day.", distractor: "School" },
-      { sentence: "This ___ has many stories.", distractor: "School" },
-      { sentence: "I borrow a ___ from the library.", distractor: "School" },
-    ],
-    [
-      { sentence: "My ___ helps me learn.", distractor: "Hello" },
-      { sentence: "The ___ writes on the board.", distractor: "Hello" },
-      { sentence: "Our ___ is very kind.", distractor: "Hello" },
-    ],
-    [
-      { sentence: "I am a ___ at school.", distractor: "Hello" },
-      { sentence: "Every ___ has a backpack.", distractor: "Hello" },
-      { sentence: "The ___ raises a hand to speak.", distractor: "Hello" },
-    ],
-  ],
-  [
-    [
-      { sentence: "I love my ___ .", distractor: "Hello" },
-      { sentence: "We eat dinner with our ___ .", distractor: "Hello" },
-      { sentence: "My whole ___ is funny.", distractor: "Hello" },
-    ],
-    [
-      { sentence: "My best ___ is kind.", distractor: "Hello" },
-      { sentence: "I play soccer with my ___ .", distractor: "Hello" },
-      { sentence: "A good ___ listens to you.", distractor: "Hello" },
-    ],
-    [
-      { sentence: "We learn at ___ .", distractor: "Hello" },
-      { sentence: "The bell rings at ___ .", distractor: "Hello" },
-      { sentence: "Children go to ___ every day.", distractor: "Hello" },
-    ],
-  ],
-  [
-    [
-      { sentence: "I drink ___ every morning.", distractor: "Book" },
-      { sentence: "Please give me cold ___ .", distractor: "Book" },
-      { sentence: "Plants need ___ to grow.", distractor: "Book" },
-    ],
-    [
-      { sentence: "I eat healthy ___ .", distractor: "Book" },
-      { sentence: "Warm ___ smells delicious.", distractor: "Book" },
-      { sentence: "We share ___ at lunch.", distractor: "Book" },
-    ],
-    [
-      { sentence: "The baby drinks ___ .", distractor: "Book" },
-      { sentence: "Cereal with ___ is yummy.", distractor: "Book" },
-      { sentence: "White ___ is in the glass.", distractor: "Book" },
-    ],
-  ],
-  [
-    [
-      { sentence: "Apples can be ___ .", distractor: "Hello" },
-      { sentence: "Strawberries are ___ .", distractor: "Hello" },
-      { sentence: "The stop sign is ___ .", distractor: "Hello" },
-    ],
-    [
-      { sentence: "The sky is ___ .", distractor: "Hello" },
-      { sentence: "The ocean is ___ .", distractor: "Hello" },
-      { sentence: "My backpack is ___ .", distractor: "Hello" },
-    ],
-    [
-      { sentence: "Grass is ___ .", distractor: "Hello" },
-      { sentence: "Leaves are ___ .", distractor: "Hello" },
-      { sentence: "Frogs can be ___ .", distractor: "Hello" },
-    ],
-  ],
-  [
-    [
-      { sentence: "It says meow. It is a ___ .", distractor: "Teacher" },
-      { sentence: "It likes milk. It is a ___ .", distractor: "Teacher" },
-      { sentence: "It climbs trees. It is a ___ .", distractor: "Teacher" },
-    ],
-    [
-      { sentence: "It says woof. It is a ___ .", distractor: "Teacher" },
-      { sentence: "It wags its tail. It is a ___ .", distractor: "Teacher" },
-      { sentence: "It fetches balls. It is a ___ .", distractor: "Teacher" },
-    ],
-    [
-      { sentence: "It can fly. It is a ___ .", distractor: "Teacher" },
-      { sentence: "It sings in the morning. It is a ___ .", distractor: "Teacher" },
-      { sentence: "It has feathers. It is a ___ .", distractor: "Teacher" },
-    ],
-  ],
-  [
-    [
-      { sentence: "My ___ cooks dinner.", distractor: "School" },
-      { sentence: "I hug my ___ goodnight.", distractor: "School" },
-      { sentence: "My ___ reads me stories.", distractor: "School" },
-    ],
-    [
-      { sentence: "My ___ reads the newspaper.", distractor: "School" },
-      { sentence: "My ___ fixes my bike.", distractor: "School" },
-      { sentence: "My ___ drives the car.", distractor: "School" },
-    ],
-    [
-      { sentence: "My ___ is my best friend.", distractor: "School" },
-      { sentence: "I share toys with my ___ .", distractor: "School" },
-      { sentence: "My ___ braids my hair.", distractor: "School" },
-    ],
-  ],
-  [
-    [
-      { sentence: "We live in a ___ .", distractor: "Friend" },
-      { sentence: "Our ___ has a red roof.", distractor: "Friend" },
-      { sentence: "I play in my ___ .", distractor: "Friend" },
-    ],
-    [
-      { sentence: "I sleep in my ___ .", distractor: "Friend" },
-      { sentence: "My toys are in my ___ .", distractor: "Friend" },
-      { sentence: "The lamp is in my ___ .", distractor: "Friend" },
-    ],
-    [
-      { sentence: "Please close the ___ .", distractor: "Friend" },
-      { sentence: "Knock on the ___ first.", distractor: "Friend" },
-      { sentence: "The ___ is made of wood.", distractor: "Friend" },
-    ],
-  ],
-  [
-    [
-      { sentence: "The ___ is shining today.", distractor: "Rain" },
-      { sentence: "The ___ is very bright.", distractor: "Rain" },
-      { sentence: "We see the ___ in the sky.", distractor: "Rain" },
-    ],
-    [
-      { sentence: "It is ___ outside.", distractor: "Sun" },
-      { sentence: "Take an umbrella. It is ___ .", distractor: "Sun" },
-      { sentence: "Puddles form when it is ___ .", distractor: "Sun" },
-    ],
-    [
-      { sentence: "The ___ is blowing hard.", distractor: "Sun" },
-      { sentence: "The kite flies in the ___ .", distractor: "Sun" },
-      { sentence: "The trees move in the ___ .", distractor: "Sun" },
-    ],
-  ],
-  [
-    [
-      { sentence: "I feel ___ today.", distractor: "School" },
-      { sentence: "Birthdays make me ___ .", distractor: "School" },
-      { sentence: "I smile when I am ___ .", distractor: "School" },
-    ],
-    [
-      { sentence: "She looks ___ .", distractor: "School" },
-      { sentence: "He cries when he is ___ .", distractor: "School" },
-      { sentence: "The movie was ___ .", distractor: "School" },
-    ],
-    [
-      { sentence: "I am very ___ after running.", distractor: "School" },
-      { sentence: "Bedtime! I am ___ .", distractor: "School" },
-      { sentence: "Long walks make me ___ .", distractor: "School" },
-    ],
-  ],
-  [
-    [
-      { sentence: "Good ___ , class!", distractor: "Book" },
-      { sentence: "We wake up in the ___ .", distractor: "Book" },
-      { sentence: "The ___ sun is orange.", distractor: "Book" },
-    ],
-    [
-      { sentence: "Good ___ , sleep well!", distractor: "Book" },
-      { sentence: "Stars come out at ___ .", distractor: "Book" },
-      { sentence: "We read stories at ___ .", distractor: "Book" },
-    ],
-    [
-      { sentence: "See you ___ !", distractor: "Book" },
-      { sentence: "___ is Monday.", distractor: "Book" },
-      { sentence: "What day is ___ ?", distractor: "Book" },
-    ],
-  ],
-  [
-    [
-      { sentence: "I eat an ___ for lunch.", distractor: "Water" },
-      { sentence: "This ___ is red and sweet.", distractor: "Water" },
-      { sentence: "An ___ a day is healthy.", distractor: "Water" },
-    ],
-    [
-      { sentence: "I eat ___ with butter.", distractor: "Water" },
-      { sentence: "Warm ___ smells good.", distractor: "Water" },
-      { sentence: "We buy fresh ___ at the store.", distractor: "Water" },
-    ],
-    [
-      { sentence: "We eat ___ with chicken.", distractor: "Water" },
-      { sentence: "White ___ is in the bowl.", distractor: "Water" },
-      { sentence: "Asian food often has ___ .", distractor: "Water" },
-    ],
-  ],
-  [
-    [
-      { sentence: "We go to school by ___ .", distractor: "Walk" },
-      { sentence: "Dad drives the ___ .", distractor: "Walk" },
-      { sentence: "The family ___ is blue.", distractor: "Walk" },
-    ],
-    [
-      { sentence: "We ride the ___ to town.", distractor: "Walk" },
-      { sentence: "Many students take the ___ .", distractor: "Walk" },
-      { sentence: "The yellow ___ stops here.", distractor: "Walk" },
-    ],
-    [
-      { sentence: "I ride my ___ to the park.", distractor: "Walk" },
-      { sentence: "My ___ has two wheels.", distractor: "Walk" },
-      { sentence: "I pedal my ___ fast.", distractor: "Walk" },
-    ],
-  ],
-  [
-    [
-      { sentence: "I can count to ___ .", distractor: "Four" },
-      { sentence: "I have ___ nose.", distractor: "Four" },
-      { sentence: "___ plus zero is ___ .", distractor: "Four" },
-    ],
-    [
-      { sentence: "I have ___ pencils.", distractor: "Four" },
-      { sentence: "Birds have ___ wings.", distractor: "Four" },
-      { sentence: "___ shoes make a pair.", distractor: "Four" },
-    ],
-    [
-      { sentence: "I see ___ birds.", distractor: "Four" },
-      { sentence: "___ little pigs in the story.", distractor: "Four" },
-      { sentence: "Traffic lights have ___ colors.", distractor: "Four" },
-    ],
-  ],
-  [
-    [
-      { sentence: "I like to ___ in the park.", distractor: "Read" },
-      { sentence: "Dogs ___ very fast.", distractor: "Read" },
-      { sentence: "Athletes ___ in races.", distractor: "Read" },
-    ],
-    [
-      { sentence: "I ___ to school every day.", distractor: "Read" },
-      { sentence: "We ___ on the sidewalk.", distractor: "Read" },
-      { sentence: "Grandma likes to ___ slowly.", distractor: "Read" },
-    ],
-    [
-      { sentence: "We ___ soccer after class.", distractor: "Read" },
-      { sentence: "Kids ___ games at recess.", distractor: "Read" },
-      { sentence: "Let's ___ outside!", distractor: "Read" },
-    ],
-  ],
-  [
-    [
-      { sentence: "In class, I ___ carefully.", distractor: "Run" },
-      { sentence: "I ___ books before bed.", distractor: "Run" },
-      { sentence: "We ___ stories together.", distractor: "Run" },
-    ],
-    [
-      { sentence: "I ___ a story in my notebook.", distractor: "Run" },
-      { sentence: "Please ___ your name here.", distractor: "Run" },
-      { sentence: "We ___ letters to friends.", distractor: "Run" },
-    ],
-    [
-      { sentence: "I ___ to the teacher.", distractor: "Run" },
-      { sentence: "Good students ___ in class.", distractor: "Run" },
-      { sentence: "Please ___ to the instructions.", distractor: "Run" },
-    ],
-  ],
-];
+const VERB_TERMS = new Set([
+  "read",
+  "write",
+  "learn",
+  "study",
+  "cook",
+  "eat",
+  "meet",
+  "help",
+  "wear",
+  "live",
+  "open",
+  "close",
+  "clean",
+  "wash",
+  "brush",
+  "hurt",
+  "feel",
+  "cry",
+  "laugh",
+  "smile",
+  "drive",
+  "ride",
+  "stop",
+  "park",
+  "grow",
+  "run",
+  "walk",
+  "play",
+  "jump",
+  "swim",
+  "climb",
+  "dance",
+  "sing",
+  "draw",
+  "push",
+  "pull",
+  "throw",
+  "catch",
+  "kick",
+  "sit",
+  "stand",
+  "sleep",
+  "wake",
+  "shout",
+  "fit",
+]);
+
+const GREETING_ONLY = new Set([
+  "hello",
+  "goodbye",
+  "please",
+  "thanks",
+  "sorry",
+  "welcome",
+  "hi",
+  "bye",
+  "see you",
+  "excuse me",
+  "yes",
+  "no",
+]);
+
+const TIME_WORDS = new Set([
+  "today",
+  "tomorrow",
+  "yesterday",
+  "dawn",
+  "dusk",
+  "week",
+  "month",
+  "year",
+  "hour",
+  "minute",
+  "second",
+  "past",
+  "future",
+  "weekday",
+  "weekend",
+  "morning",
+  "night",
+]);
+
+const FREQ_ADV = new Set(["always", "never", "often", "sometimes"]);
+
+const WHEN_ADV = new Set(["early", "late", "soon", "later", "now"]);
+
+const UNCOUNTABLE = new Set([
+  "water",
+  "milk",
+  "rice",
+  "bread",
+  "soup",
+  "cheese",
+  "meat",
+  "fish",
+  "food",
+  "sugar",
+  "salt",
+  "gasoline",
+  "traffic",
+  "homework",
+  "fruit",
+  "juice",
+  "sand",
+  "grass",
+  "rice",
+  "weather",
+  "nature",
+  "earth",
+  "ocean",
+]);
+
+const ABSTRACT_NOUNS = new Set([
+  "love",
+  "care",
+  "hope",
+  "peace",
+  "mood",
+  "joy",
+  "help",
+]);
+
+const PLURAL_NOUNS = new Set([
+  "parents",
+  "kids",
+  "socks",
+  "shoes",
+  "gloves",
+  "boots",
+  "stairs",
+]);
+
+/** Frases fijas para palabras que no encajan en plantillas genéricas. */
+const USE_SENTENCE_OVERRIDE: Record<string, readonly [string, string, string]> = {
+  meet: ["Nice to ___ you.", "Happy to ___ you.", "I want to ___ you."],
+  name: ["My ___ is Ana.", "What is your ___ ?", "Write your ___ here."],
+  morning: ["Good ___ !", "I wake up in the ___ .", "See you this ___ !"],
+  night: ["Good ___ !", "The stars shine at ___ .", "Sleep well at ___ !"],
+  well: ["I feel ___ .", "Are you ___ ?", "Get ___ soon!"],
+  good: ["Very ___ !", "That is ___ .", "Sounds ___ to me!"],
+  okay: ["It is ___ .", "Are you ___ ?", "That is ___ with me."],
+  fine: ["I am ___ .", "That is ___ .", "Very ___ , thanks!"],
+  nice: ["Very ___ !", "That is ___ .", "Have a ___ day!"],
+  ready: ["I am ___ .", "Are you ___ ?", "Get ___ , please!"],
+  dear: ["Hello, ___ friend!", "My ___ teacher.", "You are ___ to me."],
+  hour: ["Wait one ___ .", "One more ___ , please!", "An ___ has sixty minutes."],
+  minute: ["Wait a ___ .", "Just one ___ !", "A ___ is very short."],
+  second: ["One ___ , please.", "Wait a ___ !", "Every ___ counts."],
+  dawn: ["The sun rises at ___ .", "Birds sing at ___ .", "It is early at ___ ."],
+  dusk: ["The sun sets at ___ .", "The sky is orange at ___ .", "We go home at ___ ."],
+  weekday: ["Every ___ I study.", "It is a busy ___ .", "Today is a ___ ."],
+  weekend: ["I play on the ___ .", "No school on the ___ !", "Happy ___ !"],
+  parents: ["I love my ___ .", "My ___ are kind.", "I live with my ___ ."],
+  fit: ["These shoes ___ me.", "Does it ___ ?", "The coat does not ___ ."],
+  round: ["The ball is ___ .", "It is ___ like a circle.", "Draw a ___ shape."],
+  square: ["It is a ___ shape.", "Draw a ___ .", "The box is ___ ."],
+};
+
+const USE_GREETING_PATTERNS = [
+  ["I say ___ .", "We say ___ together.", "___ , how are you?"],
+  ["Before I leave, I say ___ .", "I wave and say ___ .", "Time to go! ___ !"],
+  ["Can I say ___ ?", "Please say ___ with me.", "Let's practice: ___ !"],
+] as const;
+
+const USE_ADJ_PATTERNS = [
+  ["It is ___ .", "I feel ___ .", "That looks ___ ."],
+  ["She is ___ .", "He feels ___ .", "We are ___ ."],
+  ["Very ___ !", "So ___ today.", "How ___ !"],
+] as const;
+
+const USE_TIME_PATTERNS = [
+  ["___ is a school day.", "See you ___ !", "Maybe ___ ."],
+  ["Come back ___ .", "Right ___ !", "Not now — ___ !"],
+  ["Until ___ , bye!", "It is ___ .", "Every ___ counts."],
+] as const;
+
+const USE_FREQ_PATTERNS = [
+  ["I ___ brush my teeth.", "We ___ play outside.", "She ___ sings songs."],
+  ["They ___ come here.", "I am ___ happy.", "We ___ have fun."],
+  ["He ___ runs fast.", "It is ___ sunny.", "You can ___ try again."],
+] as const;
+
+const USE_WHEN_PATTERNS = [
+  ["Please come ___ .", "I am ___ today.", "See you ___ !"],
+  ["Do it ___ , please.", "Wake up ___ !", "We leave ___ ."],
+  ["Be ___ for class.", "Call me ___ .", "Not now — ___ !"],
+] as const;
+
+const USE_UNCOUNTABLE_PATTERNS = [
+  ["I drink ___ .", "I eat ___ .", "We need ___ ."],
+  ["There is no ___ .", "I want some ___ .", "More ___ , please."],
+  ["Do you have ___ ?", "Pass the ___ , please.", "The ___ is fresh."],
+] as const;
+
+const USE_ABSTRACT_PATTERNS = [
+  ["I need ___ .", "We share ___ .", "Full of ___ !"],
+  ["So much ___ !", "With ___ and joy.", "Give me ___ ."],
+  ["___ is important.", "Always show ___ .", "Thank you for ___ ."],
+] as const;
+
+const USE_PLURAL_PATTERNS = [
+  ["I love my ___ .", "These are my ___ .", "Look at my ___ !"],
+  ["Where are my ___ ?", "I need new ___ .", "My ___ are here."],
+  ["I wash my ___ .", "Put on your ___ .", "Clean ___ , please."],
+] as const;
+
+const USE_NOUN_PATTERNS = [
+  ["I see the ___ .", "This is my ___ .", "Look at the ___ !"],
+  ["I like my ___ .", "We need the ___ .", "Where is the ___ ?"],
+  ["I have a ___ .", "It is a ___ .", "Can you find the ___ ?"],
+] as const;
+
+const USE_VERB_PATTERNS = [
+  ["I like to ___ .", "We can ___ .", "Let's ___ !"],
+  ["I want to ___ .", "Time to ___ !", "Please ___ now."],
+  ["They ___ every day.", "I will ___ soon.", "Can you ___ ?"],
+] as const;
+
+type UsePatternKind =
+  | "override"
+  | "greeting"
+  | "verb"
+  | "adj"
+  | "time"
+  | "freq"
+  | "when"
+  | "uncountable"
+  | "abstract"
+  | "plural"
+  | "noun";
+
+const PATTERN_BY_KIND: Record<
+  Exclude<UsePatternKind, "override">,
+  readonly (readonly string[])[]
+> = {
+  greeting: USE_GREETING_PATTERNS,
+  verb: USE_VERB_PATTERNS,
+  adj: USE_ADJ_PATTERNS,
+  time: USE_TIME_PATTERNS,
+  freq: USE_FREQ_PATTERNS,
+  when: USE_WHEN_PATTERNS,
+  uncountable: USE_UNCOUNTABLE_PATTERNS,
+  abstract: USE_ABSTRACT_PATTERNS,
+  plural: USE_PLURAL_PATTERNS,
+  noun: USE_NOUN_PATTERNS,
+};
+
+const getUsePatternKind = (term: string): UsePatternKind => {
+  const t = term.toLowerCase();
+  if (USE_SENTENCE_OVERRIDE[t]) return "override";
+  if (VERB_TERMS.has(t)) return "verb";
+  if (GREETING_ONLY.has(t)) return "greeting";
+  if (FREQ_ADV.has(t)) return "freq";
+  if (WHEN_ADV.has(t)) return "when";
+  if (TIME_WORDS.has(t)) return "time";
+  if (UNCOUNTABLE.has(t)) return "uncountable";
+  if (ABSTRACT_NOUNS.has(t)) return "abstract";
+  if (PLURAL_NOUNS.has(t)) return "plural";
+  if (ADJ_TERMS.has(t)) return "adj";
+  return "noun";
+};
+
+const ADJ_TERMS = new Set([
+  "red",
+  "blue",
+  "green",
+  "yellow",
+  "black",
+  "white",
+  "orange",
+  "purple",
+  "pink",
+  "brown",
+  "gray",
+  "happy",
+  "sad",
+  "tired",
+  "angry",
+  "scared",
+  "excited",
+  "bored",
+  "surprised",
+  "proud",
+  "shy",
+  "calm",
+  "worried",
+  "brave",
+  "kind",
+  "funny",
+  "lonely",
+  "hot",
+  "cold",
+  "warm",
+  "cool",
+  "big",
+  "small",
+  "long",
+  "short",
+  "tall",
+  "hungry",
+  "thirsty",
+  "sick",
+  "fast",
+  "slow",
+  "sweet",
+  "sour",
+  "bright",
+  "dark",
+  "light",
+  "clean",
+  "dirty",
+  "new",
+  "old",
+  "dry",
+  "wet",
+  "windy",
+  "stormy",
+  "sunny",
+  "cloudy",
+  "ripe",
+  "fresh",
+]);
+
+const FALLBACK_DISTRACTORS = ["Thanks", "Please", "Hello", "Sorry", "Welcome"];
+
+const pickFallbackDistractor = (usedLabels: Set<string>): string => {
+  for (const word of FALLBACK_DISTRACTORS) {
+    const label = cap(word);
+    if (!usedLabels.has(label.toLowerCase())) return label;
+  }
+  return "Thanks";
+};
+
+const pickUseDistractor = (
+  set: readonly VocabItem[],
+  themeIndex: number,
+  lessonSlot: number,
+  variant: number,
+  usedLabels: Set<string>,
+): string => {
+  const lessonTerms = new Set(set.map((item) => item.term.toLowerCase()));
+  const pool = COMPETENCY_THEMES[themeIndex].words.filter(
+    (item) => !lessonTerms.has(item.term.toLowerCase()),
+  );
+  for (let i = 0; i < pool.length; i++) {
+    const candidate = cap(
+      pool[(lessonSlot + variant + 1 + i) % pool.length].term,
+    );
+    if (!usedLabels.has(candidate.toLowerCase())) return candidate;
+  }
+  return pickFallbackDistractor(usedLabels);
+};
+
+const pickUseSentence = (
+  term: string,
+  focusIndex: number,
+  variant: number,
+): string => {
+  const override = USE_SENTENCE_OVERRIDE[term.toLowerCase()];
+  if (override) return override[variant % override.length];
+  const kind = getUsePatternKind(term);
+  if (kind === "override") {
+    return USE_NOUN_PATTERNS[variant % USE_NOUN_PATTERNS.length][
+      focusIndex % WORDS_PER_LESSON
+    ];
+  }
+  const patterns = PATTERN_BY_KIND[kind];
+  return patterns[variant % patterns.length][focusIndex % WORDS_PER_LESSON];
+};
+
+export const getLessonUseContext = (idLeccion: number) => {
+  const plan = getLessonPlan(idLeccion);
+  const sentence = pickUseSentence(
+    plan.focus.term,
+    plan.focusIndex,
+    plan.variant,
+  );
+  return {
+    sentence,
+    focus: plan.focus,
+    focusIndex: plan.focusIndex,
+    themeIndex: plan.themeIndex,
+    lessonSlot: plan.lessonSlot,
+    set: plan.set,
+  };
+};
 
 const buildUseExercise = (
   set: readonly VocabItem[],
-  setIndex: number,
   focusIndex: number,
   variant: number,
+  themeIndex: number,
+  lessonSlot: number,
 ): LessonExercise => {
-  const clue = USE_CLUES[setIndex][focusIndex][variant];
   const focus = set[focusIndex];
+  const sentence = pickUseSentence(focus.term, focusIndex, variant);
+  const usedLabels = new Set(
+    set.map((item) => cap(item.term).toLowerCase()),
+  );
+  const distractor = pickUseDistractor(
+    set,
+    themeIndex,
+    lessonSlot,
+    variant,
+    usedLabels,
+  );
   return vocabUseExercise(
     set,
     focusIndex,
-    `Usa «${focus.meaning}» en inglés. Completa: "${clue.sentence}"`,
-    clue.distractor,
+    `Usa «${focus.meaning}» en inglés. Completa: "${sentence}"`,
+    distractor,
   );
 };
 
 const buildExpectedContentPayload = (idLeccion: number): LessonContentPayload => {
-  const { setIndex, focusIndex, variant, set, focus } = getLessonPlan(idLeccion);
+  const { theme, themeIndex, lessonSlot, focusIndex, variant, set, focus } =
+    getLessonPlan(idLeccion);
   return {
-    summary: `En esta lección practicarás vocabulario básico en inglés. Objetivo: dominar ${focus.term} y expresiones relacionadas.`,
+    summary: `En esta lección practicarás vocabulario de ${theme.title}. Objetivo: dominar ${focus.term} y expresiones relacionadas.`,
     vocabulary: set.map((item) => ({ ...item })),
     quiz: {
       prompt: QUIZ_PROMPTS[variant](focus.term),
@@ -453,7 +505,7 @@ const buildExpectedContentPayload = (idLeccion: number): LessonContentPayload =>
       options: set.map((item) => item.term),
       correctIndex: focusIndex,
     },
-    use: buildUseExercise(set, setIndex, focusIndex, variant),
+    use: buildUseExercise(set, focusIndex, variant, themeIndex, lessonSlot),
   };
 };
 
@@ -497,6 +549,30 @@ const validateExerciseStructure = (
   return null;
 };
 
+export const validateOptionUniqueness = (
+  idLeccion: number,
+  payload: LessonContentPayload,
+): LessonContentIssue[] => {
+  const issues: LessonContentIssue[] = [];
+  for (const [segment, exercise] of [
+    ["quiz", payload.quiz],
+    ["practice", payload.practice],
+    ["use", payload.use],
+  ] as const) {
+    const normalized = exercise.options.map((option) =>
+      option.trim().toLowerCase(),
+    );
+    if (normalized.length !== new Set(normalized).size) {
+      issues.push({
+        id_leccion: idLeccion,
+        segment,
+        message: `opciones duplicadas: ${exercise.options.join(", ")}`,
+      });
+    }
+  }
+  return issues;
+};
+
 export const validateLessonPayloadStructure = (
   idLeccion: number,
   payload: LessonContentPayload,
@@ -522,6 +598,8 @@ export const validateLessonPayloadStructure = (
     }
   }
 
+  issues.push(...validateOptionUniqueness(idLeccion, payload));
+
   return issues;
 };
 
@@ -532,7 +610,8 @@ export const validateLessonPayload = (
   const issues = validateLessonPayloadStructure(idLeccion, payload);
   if (issues.length > 0) return issues;
 
-  const { setIndex, focusIndex, variant, set, focus } = getLessonPlan(idLeccion);
+  const { themeIndex, lessonSlot, focusIndex, variant, set, focus } =
+    getLessonPlan(idLeccion);
 
   const quizIssue = validateExercise(
     payload.quiz,
@@ -707,7 +786,8 @@ export const auditLessonGameplay = (
     });
   }
 
-  const { setIndex, focusIndex, variant, set, focus } = getLessonPlan(idLeccion);
+  const { themeIndex, lessonSlot, focusIndex, variant, set, focus } =
+    getLessonPlan(idLeccion);
 
   const quizAnswerIssue = validateExercise(quiz, focus.meaning, "quiz");
   if (quizAnswerIssue) {
@@ -731,7 +811,13 @@ export const auditLessonGameplay = (
     });
   }
 
-  const expectedUse = buildUseExercise(set, setIndex, focusIndex, variant);
+  const expectedUse = buildUseExercise(
+    set,
+    focusIndex,
+    variant,
+    themeIndex,
+    lessonSlot,
+  );
   const useAnswerIssue = validateExercise(
     use,
     expectedUse.options[expectedUse.correctIndex],
@@ -904,10 +990,10 @@ export const repairAllLessonContent = async () => {
     const idLeccion = rowInt(row.id_leccion);
     const expected = generateDefaultContentPayload(idLeccion);
     const stored = await fetchContentPayload(idLeccion);
-    const issues = validateLessonPayload(
-      idLeccion,
-      stored ?? expected,
-    );
+    const issues = [
+      ...validateLessonPayload(idLeccion, stored ?? expected),
+      ...validateOptionUniqueness(idLeccion, stored ?? expected),
+    ];
     const directionIssues = validateLessonSegmentDirections(
       idLeccion,
       stored ?? expected,
@@ -990,9 +1076,25 @@ export const getLessonContent = async (
   idLeccion: number,
   titulo: string,
 ): Promise<LessonContent> => {
-  const payload =
-    (await fetchContentPayload(idLeccion)) ??
-    generateDefaultContentPayload(idLeccion);
+  const expected = generateDefaultContentPayload(idLeccion);
+  const stored = await fetchContentPayload(idLeccion);
+
+  if (!stored) {
+    await saveLessonContentPayload(idLeccion, expected);
+    return payloadToLessonContent(idLeccion, titulo, expected);
+  }
+
+  const issues = [
+    ...validateLessonPayload(idLeccion, stored),
+    ...validateLessonSegmentDirections(idLeccion, stored),
+    ...validateOptionUniqueness(idLeccion, stored),
+  ];
+
+  const payload = issues.length > 0 ? expected : stored;
+  if (issues.length > 0) {
+    await saveLessonContentPayload(idLeccion, expected);
+  }
+
   return payloadToLessonContent(idLeccion, titulo, payload);
 };
 
