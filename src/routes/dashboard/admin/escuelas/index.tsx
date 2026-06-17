@@ -26,7 +26,8 @@ const createEscuelaAction = server$(async function (
   try {
     await requireAdmin(this);
     await createEscuela({ nombre, ciudad, direccion });
-    return { ok: true as const };
+    const escuelas = await listEscuelas();
+    return { ok: true as const, escuelas };
   } catch (error) {
     if (error instanceof ServerAuthError) {
       return { ok: false as const, reason: error.code };
@@ -44,7 +45,8 @@ const updateEscuelaAction = server$(async function (
   try {
     await requireAdmin(this);
     await updateEscuela(idEscuela, { nombre, ciudad, direccion });
-    return { ok: true as const };
+    const escuelas = await listEscuelas();
+    return { ok: true as const, escuelas };
   } catch (error) {
     if (error instanceof ServerAuthError) {
       return { ok: false as const, reason: error.code };
@@ -56,7 +58,10 @@ const updateEscuelaAction = server$(async function (
 const deleteEscuelaAction = server$(async function (idEscuela: number) {
   try {
     await requireAdmin(this);
-    return await deleteEscuela(idEscuela);
+    const result = await deleteEscuela(idEscuela);
+    if (!result.ok) return result;
+    const escuelas = await listEscuelas();
+    return { ok: true as const, escuelas };
   } catch (error) {
     if (error instanceof ServerAuthError) {
       return { ok: false as const, reason: "forbidden" as const };
@@ -67,6 +72,7 @@ const deleteEscuelaAction = server$(async function (idEscuela: number) {
 
 export default component$(() => {
   const data = useEscuelasPage();
+  const escuelas = useSignal(data.value.escuelas);
   const nombre = useSignal("");
   const ciudad = useSignal("");
   const direccion = useSignal("");
@@ -90,7 +96,7 @@ export default component$(() => {
         message.value = "No tienes permiso para crear escuelas.";
         return;
       }
-      await data.reload();
+      escuelas.value = result.escuelas;
       nombre.value = "";
       ciudad.value = "";
       direccion.value = "";
@@ -124,7 +130,7 @@ export default component$(() => {
         message.value = "No tienes permiso para editar.";
         return;
       }
-      await data.reload();
+      escuelas.value = result.escuelas;
       editingId.value = null;
       message.value = "Escuela actualizada.";
     } catch {
@@ -149,7 +155,7 @@ export default component$(() => {
               : "Escuela no encontrada.";
         return;
       }
-      await data.reload();
+      escuelas.value = result.escuelas;
       message.value = "Escuela eliminada.";
     } catch {
       message.value = "Error al eliminar.";
@@ -237,7 +243,7 @@ export default component$(() => {
             </tr>
           </thead>
           <tbody>
-            {data.value.escuelas.map((escuela) => (
+            {escuelas.value.map((escuela) => (
               <tr key={escuela.id_escuela} class="border-t border-slate-100">
                 {editingId.value === escuela.id_escuela ? (
                   <>

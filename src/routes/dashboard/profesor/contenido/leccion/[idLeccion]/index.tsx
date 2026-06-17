@@ -119,7 +119,6 @@ export default component$(() => {
 
       messageOk.value = true;
       message.value = "Contenido guardado correctamente.";
-      await data.reload();
     } catch {
       messageOk.value = false;
       message.value = "Error al guardar. Intenta de nuevo.";

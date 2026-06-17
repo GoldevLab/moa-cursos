@@ -8,9 +8,10 @@ import {
 import { LuUserCheck } from "@qwikest/icons/lucide";
 import { AuthShell } from "~/components/marketing/auth-shell";
 import { APP_NAME } from "~/lib/constants";
-import { createSession } from "~/lib/auth";
+import { authenticateUsuario, createSession } from "~/lib/auth";
 import { dashboardPathForRole } from "~/lib/auth-navigation";
 import { activateAccountFromWhitelist } from "~/lib/whitelist";
+import { checkRateLimit, clientKeyFromEvent } from "~/lib/rate-limit";
 
 const activateAction = server$(async function (
   nombres: string,
@@ -19,6 +20,16 @@ const activateAction = server$(async function (
   username: string,
 ) {
   try {
+    // Máximo 15 intentos de activación por IP cada 10 minutos.
+    const rl = checkRateLimit(
+      `activate:${clientKeyFromEvent(this)}`,
+      15,
+      10 * 60 * 1000,
+    );
+    if (!rl.allowed) {
+      return { ok: false as const, reason: "rate_limited" as const };
+    }
+
     const result = await activateAccountFromWhitelist({
       nombres,
       apellidos,
@@ -28,7 +39,6 @@ const activateAction = server$(async function (
 
     if (!result.ok) return result;
 
-    const { authenticateUsuario } = await import("~/lib/auth");
     const user = await authenticateUsuario(result.username, password);
     if (!user) {
       return { ok: false as const, reason: "activation_failed" as const };
@@ -53,6 +63,7 @@ const errorMessages: Record<string, string> = {
   activation_failed: "La cuenta se creó pero no pudimos iniciar sesión.",
   activation_error:
     "No pudimos completar la activación. Si el problema continúa, pide al administrador que revise tu invitación.",
+  rate_limited: "Demasiados intentos. Espera unos minutos e intenta de nuevo.",
 };
 
 export const head: DocumentHead = {

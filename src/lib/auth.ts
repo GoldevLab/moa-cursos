@@ -15,7 +15,7 @@ export interface SessionInfo {
 }
 
 const SESSION_COOKIE = "moa_session";
-const SESSION_MAX_AGE_SECONDS = 365 * 24 * 60 * 60;
+const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
 
 const getSessionMaxAgeMs = () => SESSION_MAX_AGE_SECONDS * 1000;
 
@@ -239,10 +239,23 @@ export const getSessionFromEvent = async (
   return session;
 };
 
-export const getCurrentUsuario = async (event: RequestEventBase) => {
+/** Usuario sin datos sensibles (sin el hash de contraseña). */
+export type PublicUsuario = Omit<UsuarioRow, "password">;
+
+/**
+ * Devuelve el usuario de la sesión SIN el hash de contraseña. Este objeto se
+ * serializa al cliente desde los routeLoaders, así que nunca debe incluir
+ * credenciales.
+ */
+export const getCurrentUsuario = async (
+  event: RequestEventBase,
+): Promise<PublicUsuario | null> => {
   const session = await getSessionFromEvent(event);
   if (!session) return null;
-  return getUsuarioById(session.userId);
+  const user = await getUsuarioById(session.userId);
+  if (!user) return null;
+  const { password: _password, ...publicUser } = user;
+  return publicUser;
 };
 
 export const storePassword = (password: string) => {
@@ -290,8 +303,10 @@ export const changeOwnPassword = async (
   if (!verifyPassword(currentPassword, user.password)) {
     return { ok: false, reason: "wrong_password" };
   }
+  // Invalida todas las sesiones existentes; el llamador vuelve a crear la sesión
+  // del dispositivo actual para no expulsar al propio usuario.
   return updateUsuarioPassword(idUsuario, newPassword, {
-    invalidateSessions: false,
+    invalidateSessions: true,
   });
 };
 

@@ -14,10 +14,28 @@ import {
   type LessonSegment,
 } from "~/lib/constants";
 import { getOptionEmoji, SEGMENT_MASCOT } from "~/lib/lesson-emojis";
-import { speakEnglish } from "~/lib/lesson-sounds";
+import { speakLessonSummary, speakLessonText, speakWord } from "~/lib/lesson-sounds";
 import { SEGMENT_LABELS } from "./student-ui";
 
 export const OPTION_LABELS = ["A", "B", "C", "D", "E", "F"];
+
+const MISSION_DIRECTION: Record<
+  LessonSegment,
+  { badge: string; subtitle: string }
+> = {
+  presentation: {
+    badge: "Inglés → Español",
+    subtitle: "Elige el significado correcto en español",
+  },
+  practice: {
+    badge: "Español → Inglés",
+    subtitle: "Elige la palabra correcta en inglés",
+  },
+  use: {
+    badge: "Completa la frase",
+    subtitle: "Usa la pista en español y elige la palabra en inglés que encaja",
+  },
+};
 
 const SEGMENT_THEME: Record<
   LessonSegment,
@@ -269,39 +287,64 @@ export const LessonGameStepper = component$(
   },
 );
 
-export const LessonSegmentIntro = component$((props: { segment: LessonSegment }) => {
-  const mascot = SEGMENT_MASCOT[props.segment];
-  const theme = SEGMENT_THEME[props.segment];
+export const LessonSegmentIntro = component$(
+  (props: {
+    segment: LessonSegment;
+    gameEmoji?: string;
+    gameTitle?: string;
+    gameHint?: string;
+  }) => {
+    const mascot = SEGMENT_MASCOT[props.segment];
+    const theme = SEGMENT_THEME[props.segment];
+    const title = props.gameTitle ?? mascot.title;
+    const hint = props.gameHint ?? mascot.hint;
+    const emoji = props.gameEmoji ?? mascot.emoji;
 
-  return (
-    <div class="mb-6 flex items-center gap-4">
-      <div
-        class={[
-          "flex h-14 w-14 items-center justify-center rounded-2xl text-2xl shadow-lg ring-4 ring-white",
-          `bg-gradient-to-br ${theme.gradient}`,
-          theme.glow,
-        ].join(" ")}
-      >
-        {mascot.emoji}
+    return (
+      <div class="mb-6 flex items-center gap-4">
+        <div
+          class={[
+            "flex h-14 w-14 items-center justify-center rounded-2xl text-2xl shadow-lg ring-4 ring-white",
+            `bg-gradient-to-br ${theme.gradient}`,
+            theme.glow,
+          ].join(" ")}
+        >
+          {emoji}
+        </div>
+        <div>
+          <h2 class="text-2xl font-black text-slate-900">{title}</h2>
+          <p class="text-sm font-medium text-slate-500">{hint}</p>
+        </div>
       </div>
-      <div>
-        <h2 class="text-2xl font-black text-slate-900">{mascot.title}</h2>
-        <p class="text-sm font-medium text-slate-500">{mascot.hint}</p>
+    );
+  },
+);
+
+export const LessonSummaryCard = component$(
+  (props: { summary: string; englishTerms?: string[] }) => (
+    <div class="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-5">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <p class="text-xs font-black uppercase tracking-widest text-sky-600">
+          Misión del día
+        </p>
+        <button
+          type="button"
+          class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 text-xs font-bold text-sky-700 transition hover:bg-sky-50"
+          aria-label="Escuchar misión"
+          onClick$={() =>
+            void speakLessonSummary(props.summary, props.englishTerms ?? [])
+          }
+        >
+          <LuVolume2 class="h-3.5 w-3.5" />
+          Escuchar
+        </button>
       </div>
+      <p class="mt-2 text-lg font-medium leading-relaxed text-slate-700">
+        {props.summary}
+      </p>
     </div>
-  );
-});
-
-export const LessonSummaryCard = component$((props: { summary: string }) => (
-  <div class="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-5">
-    <p class="text-xs font-black uppercase tracking-widest text-sky-600">
-      Misión del día
-    </p>
-    <p class="mt-2 text-lg font-medium leading-relaxed text-slate-700">
-      {props.summary}
-    </p>
-  </div>
-));
+  ),
+);
 
 export const LessonExerciseArena = component$(
   (props: {
@@ -321,6 +364,7 @@ export const LessonExerciseArena = component$(
     onSubmit$: () => void;
   }) => {
     const theme = SEGMENT_THEME[props.segment];
+    const optionLang = props.segment === "presentation" ? "es" : "en";
 
     return (
       <div class="relative">
@@ -336,6 +380,17 @@ export const LessonExerciseArena = component$(
                 : "border-slate-200/80 bg-white/90",
           ].join(" ")}
         >
+          <p
+            class={[
+              "mb-3 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
+              theme.chip,
+            ].join(" ")}
+          >
+            {MISSION_DIRECTION[props.segment].badge}
+          </p>
+          <p class="mb-2 text-sm font-semibold text-slate-500">
+            {MISSION_DIRECTION[props.segment].subtitle}
+          </p>
           <div class="flex flex-wrap items-start justify-between gap-3">
             <p class="text-lg font-bold leading-snug text-slate-900 sm:text-xl">
               {props.prompt}
@@ -343,8 +398,8 @@ export const LessonExerciseArena = component$(
             <button
               type="button"
               class="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-bold text-indigo-700 transition hover:bg-indigo-100"
-              aria-label="Escuchar en inglés"
-              onClick$={() => speakEnglish(props.prompt)}
+              aria-label="Escuchar pregunta"
+              onClick$={() => void speakLessonText(props.prompt, props.segment)}
             >
               <LuVolume2 class="h-4 w-4" />
               Escuchar
@@ -412,6 +467,29 @@ export const LessonExerciseArena = component$(
                 {isWrongPick ? (
                   <span class="absolute right-3 top-3 text-lg">💫</span>
                 ) : null}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  class={[
+                    "absolute bottom-3 right-3 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg transition",
+                    isSelected && !isWrongPick && !isCorrectOption
+                      ? "bg-white/25 text-white hover:bg-white/35"
+                      : "bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-700",
+                  ].join(" ")}
+                  aria-label={`Escuchar ${option}`}
+                  onClick$={(e) => {
+                    e.stopPropagation();
+                    void speakWord(option, optionLang);
+                  }}
+                  onKeyDown$={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    e.stopPropagation();
+                    e.preventDefault();
+                    void speakWord(option, optionLang);
+                  }}
+                >
+                  <LuVolume2 class="h-4 w-4" />
+                </span>
               </button>
             );
           })}
@@ -514,10 +592,17 @@ export const LessonMissionCompleteOverlay = component$(
   (props: {
     segment: LessonSegment;
     xp: number;
+    reviewMode?: boolean;
+    nextLabel?: string;
     onContinue$: () => void;
   }) => {
     const theme = SEGMENT_THEME[props.segment];
     const mascot = SEGMENT_MASCOT[props.segment];
+    const nextSegment: LessonSegment =
+      props.segment === "presentation" ? "practice" : "use";
+    const defaultNextLabel = props.reviewMode
+      ? `Ir a ${SEGMENT_LABELS[nextSegment]} →`
+      : "Siguiente misión →";
 
     return (
       <div
@@ -535,20 +620,24 @@ export const LessonMissionCompleteOverlay = component$(
             id="mission-complete-title"
             class="mt-3 text-2xl font-black text-slate-900"
           >
-            ¡Misión completada!
+            {props.reviewMode ? "¡Correcto en repaso!" : "¡Misión completada!"}
           </h2>
           <p class="mt-2 text-slate-600">
-            {SEGMENT_LABELS[props.segment]} superada
+            {props.reviewMode
+              ? `${SEGMENT_LABELS[props.segment]} repasada — sigue explorando`
+              : `${SEGMENT_LABELS[props.segment]} superada`}
           </p>
-          <p
-            class={[
-              "mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-lg font-black",
-              theme.chip,
-            ].join(" ")}
-          >
-            <LuZap class="h-5 w-5" />
-            +{props.xp} XP
-          </p>
+          {!props.reviewMode ? (
+            <p
+              class={[
+                "mt-4 inline-flex items-center gap-2 rounded-full px-4 py-2 text-lg font-black",
+                theme.chip,
+              ].join(" ")}
+            >
+              <LuZap class="h-5 w-5" />
+              +{props.xp} XP
+            </p>
+          ) : null}
           <button
             type="button"
             onClick$={props.onContinue$}
@@ -557,7 +646,7 @@ export const LessonMissionCompleteOverlay = component$(
               `bg-gradient-to-r ${theme.gradient}`,
             ].join(" ")}
           >
-            Siguiente misión →
+            {props.nextLabel ?? defaultNextLabel}
           </button>
         </div>
       </div>

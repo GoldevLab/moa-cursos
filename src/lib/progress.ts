@@ -25,19 +25,17 @@ export type LessonProgressState = {
   presentation_completada: boolean;
   practice_completada: boolean;
   use_completada: boolean;
+  presentation_perfect: boolean;
+  practice_perfect: boolean;
+  use_perfect: boolean;
   puntaje_total: number;
   completada: boolean;
   es_perfecta: boolean;
 };
 
-export const normalizeLessonProgress = (raw: {
-  presentation_completada?: unknown;
-  practice_completada?: unknown;
-  use_completada?: unknown;
-  puntaje_total?: unknown;
-  completada?: unknown;
-  es_perfecta?: unknown;
-}): LessonProgressState => {
+export const normalizeLessonProgress = (
+  raw: Record<string, unknown>,
+): LessonProgressState => {
   const presentation_completada = rowInt(raw.presentation_completada) === 1;
   const practice_completada = rowInt(raw.practice_completada) === 1;
   const use_completada = rowInt(raw.use_completada) === 1;
@@ -53,6 +51,10 @@ export const normalizeLessonProgress = (raw: {
     presentation_completada,
     practice_completada,
     use_completada,
+    presentation_perfect:
+      rowInt(raw.presentation_score) >= SEGMENT_POINTS.presentation,
+    practice_perfect: rowInt(raw.practice_score) >= SEGMENT_POINTS.practice,
+    use_perfect: rowInt(raw.use_score) >= SEGMENT_POINTS.use,
     puntaje_total,
     completada,
     es_perfecta,
@@ -67,6 +69,7 @@ export const reconcileLessonProgressInDb = async (
   const client = getDbClient();
   const res = await client.execute({
     sql: `SELECT presentation_completada, practice_completada, use_completada,
+                 presentation_score, practice_score, use_score,
                  puntaje_total, completada, es_perfecta
           FROM progreso_leccion
           WHERE id_estudiante = ? AND id_leccion = ? LIMIT 1`,
@@ -99,6 +102,27 @@ export const reconcileLessonProgressInDb = async (
   });
 
   return normalized;
+};
+
+/** Lee qué segmentos están completados (para validar orden en el servidor). */
+export const getLessonSegmentState = async (
+  idEstudiante: number,
+  idLeccion: number,
+) => {
+  await ensureMoaSchema();
+  const client = getDbClient();
+  const res = await client.execute({
+    sql: `SELECT presentation_completada, practice_completada, use_completada
+          FROM progreso_leccion
+          WHERE id_estudiante = ? AND id_leccion = ? LIMIT 1`,
+    args: [idEstudiante, idLeccion],
+  });
+  const row = res.rows[0];
+  return {
+    presentation_completada: rowInt(row?.presentation_completada) === 1,
+    practice_completada: rowInt(row?.practice_completada) === 1,
+    use_completada: rowInt(row?.use_completada) === 1,
+  };
 };
 
 export const getEstudianteByUsuarioId = async (idUsuario: number) => {
@@ -338,16 +362,6 @@ export const getContinueLesson = async (idEstudiante: number) => {
   return null;
 };
 
-const segmentScoreFor = (
-  segment: LessonSegment,
-  completed: boolean,
-  score: number,
-) => {
-  if (!completed) return 0;
-  const max = SEGMENT_POINTS[segment];
-  return Math.max(0, Math.min(max, Math.round(score)));
-};
-
 export const saveSegmentProgress = async (input: {
   idEstudiante: number;
   idLeccion: number;
@@ -362,6 +376,7 @@ export const saveSegmentProgress = async (input: {
 
   const existing = await client.execute({
     sql: `SELECT presentation_completada, practice_completada, use_completada,
+                 presentation_score, practice_score, use_score,
                  puntaje_total, intentos, fecha_completado, completada
           FROM progreso_leccion
           WHERE id_estudiante = ? AND id_leccion = ? LIMIT 1`,
@@ -370,47 +385,41 @@ export const saveSegmentProgress = async (input: {
 
   const row = existing.rows[0];
   const wasCompletada = rowInt(row?.completada) === 1;
-  const segmentPassed = segmentScore > 0;
-  const presentationDone =
-    (input.segment === "presentation" && segmentPassed) ||
-    rowInt(row?.presentation_completada) === 1;
-  const practiceDone =
-    (input.segment === "practice" && segmentPassed) ||
-    rowInt(row?.practice_completada) === 1;
-  const useDone =
-    (input.segment === "use" && segmentPassed) ||
-    rowInt(row?.use_completada) === 1;
+
+  // Mejor puntaje por segmento: nunca baja. El segmento actual toma el máximo
+  // entre lo guardado y el intento nuevo; los demás conservan su valor.
+  const clampSeg = (segment: LessonSegment, value: number) =>
+    Math.max(0, Math.min(SEGMENT_POINTS[segment], Math.round(value)));
+
+  const prevPresentation = clampSeg("presentation", rowInt(row?.presentation_score));
+  const prevPractice = clampSeg("practice", rowInt(row?.practice_score));
+  const prevUse = clampSeg("use", rowInt(row?.use_score));
 
   const pScore =
     input.segment === "presentation"
-      ? segmentScore
-      : segmentScoreFor(
-          "presentation",
-          rowInt(row?.presentation_completada) === 1,
-          SEGMENT_POINTS.presentation,
-        );
+      ? Math.max(prevPresentation, segmentScore)
+      : prevPresentation;
   const prScore =
     input.segment === "practice"
-      ? segmentScore
-      : segmentScoreFor(
-          "practice",
-          rowInt(row?.practice_completada) === 1,
-          SEGMENT_POINTS.practice,
-        );
+      ? Math.max(prevPractice, segmentScore)
+      : prevPractice;
   const uScore =
-    input.segment === "use"
-      ? segmentScore
-      : segmentScoreFor("use", rowInt(row?.use_completada) === 1, SEGMENT_POINTS.use);
+    input.segment === "use" ? Math.max(prevUse, segmentScore) : prevUse;
 
-  const rawTotal = pScore + prScore + uScore;
-  const previousTotal = row ? rowInt(row.puntaje_total) : 0;
+  const presentationDone = pScore > 0;
+  const practiceDone = prScore > 0;
+  const useDone = uScore > 0;
+
   const puntajeTotal = Math.min(
     MAX_POINTS_PER_LESSON,
-    Math.max(previousTotal, rawTotal),
+    pScore + prScore + uScore,
   );
 
-  const completada = puntajeTotal >= MAX_POINTS_PER_LESSON ? 1 : 0;
-  const esPerfecta = puntajeTotal === MAX_POINTS_PER_LESSON ? 1 : 0;
+  const allSegmentsDone = presentationDone && practiceDone && useDone;
+  const completada =
+    allSegmentsDone && puntajeTotal >= MAX_POINTS_PER_LESSON ? 1 : 0;
+  const esPerfecta =
+    completada === 1 && puntajeTotal === MAX_POINTS_PER_LESSON ? 1 : 0;
   const fechaCompletado =
     completada && row?.fecha_completado
       ? rowStr(row.fecha_completado)
@@ -421,39 +430,22 @@ export const saveSegmentProgress = async (input: {
   await client.execute({
     sql: `INSERT INTO progreso_leccion
           (id_estudiante, id_leccion, presentation_completada, practice_completada,
-           use_completada, puntaje_total, es_perfecta, fecha_ultimo_intento,
+           use_completada, presentation_score, practice_score, use_score,
+           puntaje_total, es_perfecta, fecha_ultimo_intento,
            fecha_completado, completada, intentos)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
           ON CONFLICT(id_estudiante, id_leccion) DO UPDATE SET
-            presentation_completada = MAX(presentation_completada, excluded.presentation_completada),
-            practice_completada = MAX(practice_completada, excluded.practice_completada),
-            use_completada = MAX(use_completada, excluded.use_completada),
-            puntaje_total = MAX(puntaje_total, excluded.puntaje_total),
-            es_perfecta = CASE
-              WHEN MAX(puntaje_total, excluded.puntaje_total) = ${MAX_POINTS_PER_LESSON}
-                AND MAX(presentation_completada, excluded.presentation_completada) = 1
-                AND MAX(practice_completada, excluded.practice_completada) = 1
-                AND MAX(use_completada, excluded.use_completada) = 1
-              THEN 1
-              ELSE 0
-            END,
+            presentation_score = excluded.presentation_score,
+            practice_score = excluded.practice_score,
+            use_score = excluded.use_score,
+            presentation_completada = excluded.presentation_completada,
+            practice_completada = excluded.practice_completada,
+            use_completada = excluded.use_completada,
+            puntaje_total = excluded.puntaje_total,
+            es_perfecta = excluded.es_perfecta,
             fecha_ultimo_intento = excluded.fecha_ultimo_intento,
-            fecha_completado = CASE
-              WHEN MAX(puntaje_total, excluded.puntaje_total) >= ${MAX_POINTS_PER_LESSON}
-                AND MAX(presentation_completada, excluded.presentation_completada) = 1
-                AND MAX(practice_completada, excluded.practice_completada) = 1
-                AND MAX(use_completada, excluded.use_completada) = 1
-              THEN COALESCE(fecha_completado, excluded.fecha_completado)
-              ELSE NULL
-            END,
-            completada = CASE
-              WHEN MAX(puntaje_total, excluded.puntaje_total) >= ${MAX_POINTS_PER_LESSON}
-                AND MAX(presentation_completada, excluded.presentation_completada) = 1
-                AND MAX(practice_completada, excluded.practice_completada) = 1
-                AND MAX(use_completada, excluded.use_completada) = 1
-              THEN 1
-              ELSE 0
-            END,
+            fecha_completado = excluded.fecha_completado,
+            completada = excluded.completada,
             intentos = intentos + 1`,
     args: [
       input.idEstudiante,
@@ -461,6 +453,9 @@ export const saveSegmentProgress = async (input: {
       presentationDone ? 1 : 0,
       practiceDone ? 1 : 0,
       useDone ? 1 : 0,
+      pScore,
+      prScore,
+      uScore,
       puntajeTotal,
       esPerfecta,
       now.toISOString(),
@@ -477,12 +472,23 @@ export const saveSegmentProgress = async (input: {
   });
   const rachaActual = rowInt(streakRes.rows[0]?.racha_actual);
 
+  const segmentScoreFinal =
+    input.segment === "presentation"
+      ? pScore
+      : input.segment === "practice"
+        ? prScore
+        : uScore;
+
   return {
     puntaje_total: puntajeTotal,
     completada: completada === 1,
     es_perfecta: esPerfecta === 1,
     newly_completed: completada === 1 && !wasCompletada,
-    segment_xp: segmentScore,
+    segment_xp: segmentScoreFinal,
+    segment_perfect: segmentScoreFinal >= maxSegment,
+    presentation_completada: presentationDone,
+    practice_completada: practiceDone,
+    use_completada: useDone,
     trophies_awarded: trophiesAwarded,
     racha_actual: rachaActual,
   };

@@ -1,12 +1,21 @@
-import { auditAllLessonContent, repairAllLessonContent } from "../src/lib/lesson-content";
+import {
+  auditAllLessonContent,
+  auditAllLessonGameplay,
+  repairAllLessonContent,
+} from "../src/lib/lesson-content";
 
 const main = async () => {
   const repaired = await repairAllLessonContent();
-  const issues = await auditAllLessonContent();
+  const contentIssues = await auditAllLessonContent();
+  const gameplayIssues = await auditAllLessonGameplay();
+
+  const issues = [...contentIssues, ...gameplayIssues];
 
   console.log(`Reparadas: ${repaired} lecciones`);
   if (issues.length === 0) {
-    console.log("OK: las 128 lecciones tienen preguntas coherentes.");
+    console.log(
+      "OK: las 128 lecciones tienen preguntas coherentes y gameplay válido.",
+    );
     return;
   }
 

@@ -16,6 +16,8 @@
     "dev": "vite --mode ssr",
     "db:seed": "tsx scripts/setup-turso.ts",
     "db:audit-lessons": "tsx scripts/audit-lessons.ts",
+    "db:audit-speech": "tsx scripts/audit-speech.ts",
+    "db:audit-all": "tsx scripts/audit-all-lessons.ts",
     "setup:turso": "yarn db:seed",
     "preview": "qwik build preview && vite preview --open",
     "serve": "PORT=3000 HOST=0.0.0.0 node server/entry.express.js",

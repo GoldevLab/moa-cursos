@@ -1,7 +1,7 @@
 import { $, component$, useSignal } from "@builder.io/qwik";
 import { routeLoader$, server$, type DocumentHead } from "@builder.io/qwik-city";
 import { LuEye, LuEyeOff, LuShield } from "@qwikest/icons/lucide";
-import { changeOwnPassword, getCurrentUsuario } from "~/lib/auth";
+import { changeOwnPassword, createSession, getCurrentUsuario } from "~/lib/auth";
 import { AUTH_LOGIN_PATH } from "~/lib/auth-navigation";
 import { requireAuthenticatedUsuario, ServerAuthError } from "~/lib/server-auth";
 
@@ -26,7 +26,17 @@ const changePasswordAction = server$(async function (
 ) {
   try {
     const user = await requireAuthenticatedUsuario(this);
-    return await changeOwnPassword(user.id_usuario, currentPassword, newPassword);
+    const result = await changeOwnPassword(
+      user.id_usuario,
+      currentPassword,
+      newPassword,
+    );
+    // Cambiar la contraseña revoca todas las sesiones (incluida esta), así que
+    // recreamos la sesión del dispositivo actual para mantener al usuario dentro.
+    if (result.ok) {
+      await createSession(user.id_usuario, this);
+    }
+    return result;
   } catch (error) {
     if (error instanceof ServerAuthError) {
       return { ok: false as const, reason: error.code };

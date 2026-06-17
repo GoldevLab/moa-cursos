@@ -31,13 +31,16 @@ const addEntryAction = server$(async function (
 ) {
   try {
     await requireAdmin(this);
-    return await addWhitelistEntry({
+    const result = await addWhitelistEntry({
       nombres,
       apellidos,
       rol_asignado: rol,
       id_escuela: idEscuela,
       id_gradoactual: idGrado,
     });
+    if (!result.ok) return result;
+    const entries = await listWhitelistEntries();
+    return { ok: true as const, entries };
   } catch (error) {
     if (error instanceof ServerAuthError) {
       return { ok: false as const, reason: "forbidden" as const };
@@ -50,7 +53,10 @@ const addEntryAction = server$(async function (
 const deleteEntryAction = server$(async function (id: number) {
   try {
     await requireAdmin(this);
-    return await deleteWhitelistEntry(id);
+    const result = await deleteWhitelistEntry(id);
+    if (!result.ok) return result;
+    const entries = await listWhitelistEntries();
+    return { ok: true as const, entries };
   } catch (error) {
     if (error instanceof ServerAuthError) {
       return { ok: false as const, reason: "forbidden" as const };
@@ -76,6 +82,7 @@ const deleteEntryMessages: Record<string, string> = {
 
 export default component$(() => {
   const data = useWhitelistPage();
+  const entries = useSignal(data.value.entries);
   const nombres = useSignal("");
   const apellidos = useSignal("");
   const rol = useSignal<"estudiante" | "profesor" | "admin">("estudiante");
@@ -92,7 +99,7 @@ export default component$(() => {
 
   const filteredEntries = useComputed$(() => {
     const q = filterQuery.value.trim().toLowerCase();
-    return data.value.entries.filter((entry) => {
+    return entries.value.filter((entry) => {
       if (filterRol.value && entry.rol_asignado !== filterRol.value) {
         return false;
       }
@@ -137,11 +144,10 @@ export default component$(() => {
             : "error";
         message.value =
           addEntryMessages[result.reason] || "No se pudo agregar la invitación.";
-        await data.reload();
         return;
       }
 
-      await data.reload();
+      entries.value = result.entries;
       messageKind.value = "success";
       message.value = "Invitación agregada.";
       nombres.value = "";
@@ -149,7 +155,6 @@ export default component$(() => {
     } catch {
       messageKind.value = "error";
       message.value = "No se pudo agregar la invitación.";
-      await data.reload();
     } finally {
       loading.value = false;
     }
@@ -170,7 +175,7 @@ export default component$(() => {
         return;
       }
 
-      await data.reload();
+      entries.value = result.entries;
       messageKind.value = "success";
       message.value = "Invitación eliminada.";
     } catch {
@@ -245,7 +250,7 @@ export default component$(() => {
           >
             {data.value.escuelas.map((e) => (
               <option key={e.id_escuela} value={e.id_escuela}>
-                {e.nombre} ({e.ciudad})
+                {`${e.nombre} (${e.ciudad})`}
               </option>
             ))}
           </select>
@@ -383,7 +388,7 @@ export default component$(() => {
                   colSpan={6}
                   class="px-4 py-8 text-center text-slate-500"
                 >
-                  {data.value.entries.length === 0
+                  {entries.value.length === 0
                     ? "No hay invitaciones en la lista blanca."
                     : "Ninguna invitación coincide con los filtros."}
                 </td>

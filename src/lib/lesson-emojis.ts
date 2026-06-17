@@ -118,6 +118,6 @@ export const SEGMENT_MASCOT: Record<string, { emoji: string; title: string; hint
   use: {
     emoji: "🚀",
     title: "¡Úsalo!",
-    hint: "Completa la frase como un explorador MOA",
+    hint: "Lee la pista en español («azul», «gato»…) y completa la frase en inglés",
   },
 };

@@ -14,11 +14,29 @@ import {
 } from "~/lib/auth";
 import { ensureMoaSchema } from "~/lib/schema";
 import { dashboardPathForRole } from "~/lib/auth-navigation";
+import {
+  checkRateLimit,
+  clientKeyFromEvent,
+  resetRateLimit,
+} from "~/lib/rate-limit";
 
 const loginAction = server$(async function (username: string, password: string) {
   await ensureMoaSchema();
+
+  // Máximo 10 intentos por IP cada 5 minutos.
+  const rlKey = `login:${clientKeyFromEvent(this)}`;
+  const rl = checkRateLimit(rlKey, 10, 5 * 60 * 1000);
+  if (!rl.allowed) {
+    return {
+      ok: false as const,
+      reason: "rate_limited" as const,
+      retryAfterSeconds: rl.retryAfterSeconds,
+    };
+  }
+
   const user = await authenticateUsuario(username, password);
   if (!user) return { ok: false as const, reason: "invalid_credentials" as const };
+  resetRateLimit(rlKey);
   await createSession(user.id_usuario, this);
   return {
     ok: true as const,
@@ -51,7 +69,10 @@ export default component$(() => {
     try {
       const result = await loginAction(username.value, password.value);
       if (!result.ok) {
-        error.value = "Usuario o contraseña incorrectos.";
+        error.value =
+          result.reason === "rate_limited"
+            ? `Demasiados intentos. Espera ${result.retryAfterSeconds} segundos e intenta de nuevo.`
+            : "Usuario o contraseña incorrectos.";
         return;
       }
       await nav(dashboardPathForRole(result.rol));

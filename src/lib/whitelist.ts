@@ -101,6 +101,19 @@ export const activateAccountFromWhitelist = async (
 
   const passwordHash = storePassword(password);
 
+  // Reclamo atómico de la entrada: solo una activación concurrente puede pasar
+  // de ya_registrado = 0 a 1. Evita crear dos cuentas para la misma persona.
+  const claim = await client.execute({
+    sql: `UPDATE lista_blanca SET ya_registrado = 1
+          WHERE lower(trim(nombres)) = lower(trim(?))
+            AND lower(trim(apellidos)) = lower(trim(?))
+            AND ya_registrado = 0`,
+    args: [nombres, apellidos],
+  });
+  if (Number(claim.rowsAffected ?? 0) === 0) {
+    return { ok: false, reason: "already_registered" };
+  }
+
   try {
     const userRes = await client.execute({
       sql: `INSERT INTO usuario (username, password, nombres, apellidos, rol, fecha_registro)
@@ -118,7 +131,7 @@ export const activateAccountFromWhitelist = async (
       rowInt(userRes.rows[0]?.id_usuario) ||
       Number(userRes.lastInsertRowid ?? 0);
     if (!idUsuario) {
-      return { ok: false, reason: "activation_error" };
+      throw new Error("No se obtuvo id_usuario tras la inserción");
     }
 
     if (entry.rol_asignado === "estudiante") {
@@ -136,20 +149,22 @@ export const activateAccountFromWhitelist = async (
       });
     }
 
-    await client.execute({
-      sql: `UPDATE lista_blanca SET ya_registrado = 1
-            WHERE lower(trim(nombres)) = lower(trim(?))
-              AND lower(trim(apellidos)) = lower(trim(?))`,
-      args: [nombres, apellidos],
-    });
-
     return { ok: true, username };
   } catch (error) {
     console.error("[whitelist] activateAccountFromWhitelist failed:", error);
+    // Revierte: borra el usuario a medio crear y libera el reclamo de la lista.
     await client
       .execute({
         sql: `DELETE FROM usuario WHERE lower(username) = ?`,
         args: [username],
+      })
+      .catch(() => undefined);
+    await client
+      .execute({
+        sql: `UPDATE lista_blanca SET ya_registrado = 0
+              WHERE lower(trim(nombres)) = lower(trim(?))
+                AND lower(trim(apellidos)) = lower(trim(?))`,
+        args: [nombres, apellidos],
       })
       .catch(() => undefined);
     return { ok: false, reason: "activation_error" };
@@ -233,7 +248,8 @@ export const addWhitelistEntry = async (input: {
       ],
     });
     return { ok: true };
-  } catch {
+  } catch (error) {
+    console.error("[whitelist] addWhitelistEntry failed:", error);
     return { ok: false, reason: "db_error" };
   }
 };
@@ -262,7 +278,8 @@ export const deleteWhitelistEntry = async (
       args: [id],
     });
     return { ok: true };
-  } catch {
+  } catch (error) {
+    console.error("[whitelist] deleteWhitelistEntry failed:", error);
     return { ok: false, reason: "db_error" };
   }
 };

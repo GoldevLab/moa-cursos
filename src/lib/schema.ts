@@ -80,6 +80,9 @@ const TABLE_STATEMENTS = [
     presentation_completada INTEGER NOT NULL DEFAULT 0,
     practice_completada INTEGER NOT NULL DEFAULT 0,
     use_completada INTEGER NOT NULL DEFAULT 0,
+    presentation_score INTEGER NOT NULL DEFAULT 0,
+    practice_score INTEGER NOT NULL DEFAULT 0,
+    use_score INTEGER NOT NULL DEFAULT 0,
     puntaje_total INTEGER NOT NULL DEFAULT 0,
     es_perfecta INTEGER NOT NULL DEFAULT 0,
     fecha_ultimo_intento TEXT NOT NULL DEFAULT (datetime('now')),
@@ -263,6 +266,42 @@ const dedupeWhitelistEntries = async () => {
   });
 };
 
+/**
+ * Añade columnas nuevas a tablas existentes (SQLite no soporta IF NOT EXISTS
+ * en ADD COLUMN, así que comprobamos con PRAGMA table_info).
+ */
+const migrateColumns = async () => {
+  const client = getDbClient();
+  const info = await client.execute("PRAGMA table_info(progreso_leccion)");
+  const columns = new Set(info.rows.map((r) => String(r.name)));
+  const newColumns: { name: string; ddl: string }[] = [
+    { name: "presentation_score", ddl: "presentation_score INTEGER NOT NULL DEFAULT 0" },
+    { name: "practice_score", ddl: "practice_score INTEGER NOT NULL DEFAULT 0" },
+    { name: "use_score", ddl: "use_score INTEGER NOT NULL DEFAULT 0" },
+  ];
+  let addedScoreColumns = false;
+  for (const col of newColumns) {
+    if (!columns.has(col.name)) {
+      await client.execute(
+        `ALTER TABLE progreso_leccion ADD COLUMN ${col.ddl}`,
+      );
+      addedScoreColumns = true;
+    }
+  }
+
+  // Backfill: las filas antiguas no tenían puntaje por segmento. Para no perder
+  // XP ya ganado, asignamos el máximo del segmento a cada uno marcado como
+  // completado (coincide con cómo se calculaba el total antes de la migración).
+  if (addedScoreColumns) {
+    await client.execute(`
+      UPDATE progreso_leccion SET
+        presentation_score = CASE WHEN presentation_completada = 1 THEN 25 ELSE 0 END,
+        practice_score = CASE WHEN practice_completada = 1 THEN 50 ELSE 0 END,
+        use_score = CASE WHEN use_completada = 1 THEN 50 ELSE 0 END
+    `);
+  }
+};
+
 export const ensureMoaSchema = async () => {
   if (isSchemaEnsured("moa")) return;
 
@@ -271,6 +310,7 @@ export const ensureMoaSchema = async () => {
     await client.execute(sql);
   }
 
+  await migrateColumns();
   await dedupeWhitelistEntries();
 
   const seeded = await client.execute({

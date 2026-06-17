@@ -1,4 +1,4 @@
-import type { LessonSegment } from "./constants";
+import { SEGMENT_POINTS, type LessonSegment } from "./constants";
 import { getDbClient, rowInt, rowStr } from "./db";
 import { ensureMoaSchema } from "./schema";
 
@@ -113,98 +113,349 @@ const vocabularySets = [
 
 type VocabItem = { term: string; meaning: string };
 
-const useTemplates: ((set: readonly VocabItem[]) => LessonExercise)[] = [
-  () => ({
-    prompt: `Completa la frase: "___ , how are you?"`,
-    options: ["Hello", "Goodbye", "Please", "Thanks"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "I read a ___ every day."`,
-    options: [
-      cap(set[0].term),
-      cap(set[1].term),
-      cap(set[2].term),
-      "School",
+/** Reparte vocabulario y palabra foco; `variant` desambigua lecciones que comparten set. */
+export const getLessonPlan = (idLeccion: number) => {
+  const slot = idLeccion - 1;
+  const setIndex = Math.floor(slot / 3) % vocabularySets.length;
+  const focusIndex = slot % 3;
+  const variant = Math.floor(slot / 45) % 3;
+  const set = vocabularySets[setIndex];
+  return { slot, setIndex, focusIndex, variant, set, focus: set[focusIndex] };
+};
+
+const QUIZ_PROMPTS = [
+  (term: string) => `Selecciona el significado correcto de "${term}":`,
+  (term: string) => `¿Qué significa "${term}" en español?`,
+  (term: string) => `Elige la traducción correcta de "${term}":`,
+] as const;
+
+const PRACTICE_PROMPTS = [
+  (meaning: string) => `¿Cuál palabra en inglés corresponde a "${meaning}"?`,
+  (meaning: string) => `¿Cómo se dice "${meaning}" en inglés?`,
+  (meaning: string) => `Elige la palabra en inglés para "${meaning}":`,
+] as const;
+
+const vocabUseExercise = (
+  set: readonly VocabItem[],
+  focusIndex: number,
+  prompt: string,
+  distractor: string,
+): LessonExercise => ({
+  prompt,
+  options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), distractor],
+  correctIndex: focusIndex,
+});
+
+/** Frases donde solo encaja una palabra del set; [set][foco][variante]. */
+const USE_CLUES: { sentence: string; distractor: string }[][][] = [
+  [
+    [
+      { sentence: "___ , how are you?", distractor: "Thanks" },
+      { sentence: "I say ___ when I meet friends.", distractor: "Thanks" },
+      { sentence: "___ , my name is Ana.", distractor: "Thanks" },
     ],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "I love my ___ ."`,
-    options: [
-      cap(set[0].term),
-      cap(set[1].term),
-      cap(set[2].term),
-      "Hello",
+    [
+      { sentence: "Before I leave, I say ___ .", distractor: "Thanks" },
+      { sentence: "At night I wave and say ___ .", distractor: "Thanks" },
+      { sentence: "Time to go! I say ___ .", distractor: "Thanks" },
     ],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "I drink ___ every morning."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Book"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "My favorite color is ___ ."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Hello"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "I have a pet ___ ."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Teacher"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "My ___ is very kind."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "School"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "The ___ is open."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Friend"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "The ___ is shining today."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Rain"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "I feel ___ today."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "School"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "See you this ___ ."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Book"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "I eat an ___ for lunch."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Water"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "We go to school by ___ ."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Walk"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "I can count to ___ ."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Four"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "I like to ___ in the park."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Read"],
-    correctIndex: 0,
-  }),
-  (set) => ({
-    prompt: `Completa la frase: "In class, I ___ carefully."`,
-    options: [cap(set[0].term), cap(set[1].term), cap(set[2].term), "Run"],
-    correctIndex: 0,
-  }),
+    [
+      { sentence: "Can I have water, ___ ?", distractor: "Thanks" },
+      { sentence: "___ pass me the book.", distractor: "Thanks" },
+      { sentence: "May I sit here? ___ ?", distractor: "Thanks" },
+    ],
+  ],
+  [
+    [
+      { sentence: "I read a ___ every day.", distractor: "School" },
+      { sentence: "This ___ has many stories.", distractor: "School" },
+      { sentence: "I borrow a ___ from the library.", distractor: "School" },
+    ],
+    [
+      { sentence: "My ___ helps me learn.", distractor: "Hello" },
+      { sentence: "The ___ writes on the board.", distractor: "Hello" },
+      { sentence: "Our ___ is very kind.", distractor: "Hello" },
+    ],
+    [
+      { sentence: "I am a ___ at school.", distractor: "Hello" },
+      { sentence: "Every ___ has a backpack.", distractor: "Hello" },
+      { sentence: "The ___ raises a hand to speak.", distractor: "Hello" },
+    ],
+  ],
+  [
+    [
+      { sentence: "I love my ___ .", distractor: "Hello" },
+      { sentence: "We eat dinner with our ___ .", distractor: "Hello" },
+      { sentence: "My whole ___ is funny.", distractor: "Hello" },
+    ],
+    [
+      { sentence: "My best ___ is kind.", distractor: "Hello" },
+      { sentence: "I play soccer with my ___ .", distractor: "Hello" },
+      { sentence: "A good ___ listens to you.", distractor: "Hello" },
+    ],
+    [
+      { sentence: "We learn at ___ .", distractor: "Hello" },
+      { sentence: "The bell rings at ___ .", distractor: "Hello" },
+      { sentence: "Children go to ___ every day.", distractor: "Hello" },
+    ],
+  ],
+  [
+    [
+      { sentence: "I drink ___ every morning.", distractor: "Book" },
+      { sentence: "Please give me cold ___ .", distractor: "Book" },
+      { sentence: "Plants need ___ to grow.", distractor: "Book" },
+    ],
+    [
+      { sentence: "I eat healthy ___ .", distractor: "Book" },
+      { sentence: "Warm ___ smells delicious.", distractor: "Book" },
+      { sentence: "We share ___ at lunch.", distractor: "Book" },
+    ],
+    [
+      { sentence: "The baby drinks ___ .", distractor: "Book" },
+      { sentence: "Cereal with ___ is yummy.", distractor: "Book" },
+      { sentence: "White ___ is in the glass.", distractor: "Book" },
+    ],
+  ],
+  [
+    [
+      { sentence: "Apples can be ___ .", distractor: "Hello" },
+      { sentence: "Strawberries are ___ .", distractor: "Hello" },
+      { sentence: "The stop sign is ___ .", distractor: "Hello" },
+    ],
+    [
+      { sentence: "The sky is ___ .", distractor: "Hello" },
+      { sentence: "The ocean is ___ .", distractor: "Hello" },
+      { sentence: "My backpack is ___ .", distractor: "Hello" },
+    ],
+    [
+      { sentence: "Grass is ___ .", distractor: "Hello" },
+      { sentence: "Leaves are ___ .", distractor: "Hello" },
+      { sentence: "Frogs can be ___ .", distractor: "Hello" },
+    ],
+  ],
+  [
+    [
+      { sentence: "It says meow. It is a ___ .", distractor: "Teacher" },
+      { sentence: "It likes milk. It is a ___ .", distractor: "Teacher" },
+      { sentence: "It climbs trees. It is a ___ .", distractor: "Teacher" },
+    ],
+    [
+      { sentence: "It says woof. It is a ___ .", distractor: "Teacher" },
+      { sentence: "It wags its tail. It is a ___ .", distractor: "Teacher" },
+      { sentence: "It fetches balls. It is a ___ .", distractor: "Teacher" },
+    ],
+    [
+      { sentence: "It can fly. It is a ___ .", distractor: "Teacher" },
+      { sentence: "It sings in the morning. It is a ___ .", distractor: "Teacher" },
+      { sentence: "It has feathers. It is a ___ .", distractor: "Teacher" },
+    ],
+  ],
+  [
+    [
+      { sentence: "My ___ cooks dinner.", distractor: "School" },
+      { sentence: "I hug my ___ goodnight.", distractor: "School" },
+      { sentence: "My ___ reads me stories.", distractor: "School" },
+    ],
+    [
+      { sentence: "My ___ reads the newspaper.", distractor: "School" },
+      { sentence: "My ___ fixes my bike.", distractor: "School" },
+      { sentence: "My ___ drives the car.", distractor: "School" },
+    ],
+    [
+      { sentence: "My ___ is my best friend.", distractor: "School" },
+      { sentence: "I share toys with my ___ .", distractor: "School" },
+      { sentence: "My ___ braids my hair.", distractor: "School" },
+    ],
+  ],
+  [
+    [
+      { sentence: "We live in a ___ .", distractor: "Friend" },
+      { sentence: "Our ___ has a red roof.", distractor: "Friend" },
+      { sentence: "I play in my ___ .", distractor: "Friend" },
+    ],
+    [
+      { sentence: "I sleep in my ___ .", distractor: "Friend" },
+      { sentence: "My toys are in my ___ .", distractor: "Friend" },
+      { sentence: "The lamp is in my ___ .", distractor: "Friend" },
+    ],
+    [
+      { sentence: "Please close the ___ .", distractor: "Friend" },
+      { sentence: "Knock on the ___ first.", distractor: "Friend" },
+      { sentence: "The ___ is made of wood.", distractor: "Friend" },
+    ],
+  ],
+  [
+    [
+      { sentence: "The ___ is shining today.", distractor: "Rain" },
+      { sentence: "The ___ is very bright.", distractor: "Rain" },
+      { sentence: "We see the ___ in the sky.", distractor: "Rain" },
+    ],
+    [
+      { sentence: "It is ___ outside.", distractor: "Sun" },
+      { sentence: "Take an umbrella. It is ___ .", distractor: "Sun" },
+      { sentence: "Puddles form when it is ___ .", distractor: "Sun" },
+    ],
+    [
+      { sentence: "The ___ is blowing hard.", distractor: "Sun" },
+      { sentence: "The kite flies in the ___ .", distractor: "Sun" },
+      { sentence: "The trees move in the ___ .", distractor: "Sun" },
+    ],
+  ],
+  [
+    [
+      { sentence: "I feel ___ today.", distractor: "School" },
+      { sentence: "Birthdays make me ___ .", distractor: "School" },
+      { sentence: "I smile when I am ___ .", distractor: "School" },
+    ],
+    [
+      { sentence: "She looks ___ .", distractor: "School" },
+      { sentence: "He cries when he is ___ .", distractor: "School" },
+      { sentence: "The movie was ___ .", distractor: "School" },
+    ],
+    [
+      { sentence: "I am very ___ after running.", distractor: "School" },
+      { sentence: "Bedtime! I am ___ .", distractor: "School" },
+      { sentence: "Long walks make me ___ .", distractor: "School" },
+    ],
+  ],
+  [
+    [
+      { sentence: "Good ___ , class!", distractor: "Book" },
+      { sentence: "We wake up in the ___ .", distractor: "Book" },
+      { sentence: "The ___ sun is orange.", distractor: "Book" },
+    ],
+    [
+      { sentence: "Good ___ , sleep well!", distractor: "Book" },
+      { sentence: "Stars come out at ___ .", distractor: "Book" },
+      { sentence: "We read stories at ___ .", distractor: "Book" },
+    ],
+    [
+      { sentence: "See you ___ !", distractor: "Book" },
+      { sentence: "___ is Monday.", distractor: "Book" },
+      { sentence: "What day is ___ ?", distractor: "Book" },
+    ],
+  ],
+  [
+    [
+      { sentence: "I eat an ___ for lunch.", distractor: "Water" },
+      { sentence: "This ___ is red and sweet.", distractor: "Water" },
+      { sentence: "An ___ a day is healthy.", distractor: "Water" },
+    ],
+    [
+      { sentence: "I eat ___ with butter.", distractor: "Water" },
+      { sentence: "Warm ___ smells good.", distractor: "Water" },
+      { sentence: "We buy fresh ___ at the store.", distractor: "Water" },
+    ],
+    [
+      { sentence: "We eat ___ with chicken.", distractor: "Water" },
+      { sentence: "White ___ is in the bowl.", distractor: "Water" },
+      { sentence: "Asian food often has ___ .", distractor: "Water" },
+    ],
+  ],
+  [
+    [
+      { sentence: "We go to school by ___ .", distractor: "Walk" },
+      { sentence: "Dad drives the ___ .", distractor: "Walk" },
+      { sentence: "The family ___ is blue.", distractor: "Walk" },
+    ],
+    [
+      { sentence: "We ride the ___ to town.", distractor: "Walk" },
+      { sentence: "Many students take the ___ .", distractor: "Walk" },
+      { sentence: "The yellow ___ stops here.", distractor: "Walk" },
+    ],
+    [
+      { sentence: "I ride my ___ to the park.", distractor: "Walk" },
+      { sentence: "My ___ has two wheels.", distractor: "Walk" },
+      { sentence: "I pedal my ___ fast.", distractor: "Walk" },
+    ],
+  ],
+  [
+    [
+      { sentence: "I can count to ___ .", distractor: "Four" },
+      { sentence: "I have ___ nose.", distractor: "Four" },
+      { sentence: "___ plus zero is ___ .", distractor: "Four" },
+    ],
+    [
+      { sentence: "I have ___ pencils.", distractor: "Four" },
+      { sentence: "Birds have ___ wings.", distractor: "Four" },
+      { sentence: "___ shoes make a pair.", distractor: "Four" },
+    ],
+    [
+      { sentence: "I see ___ birds.", distractor: "Four" },
+      { sentence: "___ little pigs in the story.", distractor: "Four" },
+      { sentence: "Traffic lights have ___ colors.", distractor: "Four" },
+    ],
+  ],
+  [
+    [
+      { sentence: "I like to ___ in the park.", distractor: "Read" },
+      { sentence: "Dogs ___ very fast.", distractor: "Read" },
+      { sentence: "Athletes ___ in races.", distractor: "Read" },
+    ],
+    [
+      { sentence: "I ___ to school every day.", distractor: "Read" },
+      { sentence: "We ___ on the sidewalk.", distractor: "Read" },
+      { sentence: "Grandma likes to ___ slowly.", distractor: "Read" },
+    ],
+    [
+      { sentence: "We ___ soccer after class.", distractor: "Read" },
+      { sentence: "Kids ___ games at recess.", distractor: "Read" },
+      { sentence: "Let's ___ outside!", distractor: "Read" },
+    ],
+  ],
+  [
+    [
+      { sentence: "In class, I ___ carefully.", distractor: "Run" },
+      { sentence: "I ___ books before bed.", distractor: "Run" },
+      { sentence: "We ___ stories together.", distractor: "Run" },
+    ],
+    [
+      { sentence: "I ___ a story in my notebook.", distractor: "Run" },
+      { sentence: "Please ___ your name here.", distractor: "Run" },
+      { sentence: "We ___ letters to friends.", distractor: "Run" },
+    ],
+    [
+      { sentence: "I ___ to the teacher.", distractor: "Run" },
+      { sentence: "Good students ___ in class.", distractor: "Run" },
+      { sentence: "Please ___ to the instructions.", distractor: "Run" },
+    ],
+  ],
 ];
+
+const buildUseExercise = (
+  set: readonly VocabItem[],
+  setIndex: number,
+  focusIndex: number,
+  variant: number,
+): LessonExercise => {
+  const clue = USE_CLUES[setIndex][focusIndex][variant];
+  const focus = set[focusIndex];
+  return vocabUseExercise(
+    set,
+    focusIndex,
+    `Usa «${focus.meaning}» en inglés. Completa: "${clue.sentence}"`,
+    clue.distractor,
+  );
+};
+
+const buildExpectedContentPayload = (idLeccion: number): LessonContentPayload => {
+  const { setIndex, focusIndex, variant, set, focus } = getLessonPlan(idLeccion);
+  return {
+    summary: `En esta lección practicarás vocabulario básico en inglés. Objetivo: dominar ${focus.term} y expresiones relacionadas.`,
+    vocabulary: set.map((item) => ({ ...item })),
+    quiz: {
+      prompt: QUIZ_PROMPTS[variant](focus.term),
+      options: set.map((item) => item.meaning),
+      correctIndex: focusIndex,
+    },
+    practice: {
+      prompt: PRACTICE_PROMPTS[variant](focus.meaning),
+      options: set.map((item) => item.term),
+      correctIndex: focusIndex,
+    },
+    use: buildUseExercise(set, setIndex, focusIndex, variant),
+  };
+};
 
 export type LessonContentIssue = {
   id_leccion: number;
@@ -281,30 +532,27 @@ export const validateLessonPayload = (
   const issues = validateLessonPayloadStructure(idLeccion, payload);
   if (issues.length > 0) return issues;
 
-  const setIndex = (idLeccion - 1) % vocabularySets.length;
-  const set = vocabularySets[setIndex];
-  const quizTarget = (idLeccion - 1) % 3;
-  const practiceTarget = (idLeccion + 1) % 3;
+  const { setIndex, focusIndex, variant, set, focus } = getLessonPlan(idLeccion);
 
   const quizIssue = validateExercise(
     payload.quiz,
-    set[quizTarget].meaning,
+    focus.meaning,
     "quiz",
   );
   if (quizIssue) {
     issues.push({ id_leccion: idLeccion, segment: "quiz", message: quizIssue });
   }
-  if (!payload.quiz.prompt.includes(set[quizTarget].term)) {
+  if (!payload.quiz.prompt.includes(focus.term)) {
     issues.push({
       id_leccion: idLeccion,
       segment: "quiz",
-      message: `la pregunta no menciona "${set[quizTarget].term}"`,
+      message: `la pregunta no menciona "${focus.term}"`,
     });
   }
 
   const practiceIssue = validateExercise(
     payload.practice,
-    set[practiceTarget].term,
+    focus.term,
     "practice",
   );
   if (practiceIssue) {
@@ -314,15 +562,41 @@ export const validateLessonPayload = (
       message: practiceIssue,
     });
   }
-  if (!payload.practice.prompt.includes(set[practiceTarget].meaning)) {
+  if (!payload.practice.prompt.includes(focus.meaning)) {
     issues.push({
       id_leccion: idLeccion,
       segment: "practice",
-      message: `la pregunta no menciona "${set[practiceTarget].meaning}"`,
+      message: `la pregunta no menciona "${focus.meaning}"`,
     });
   }
 
-  const expectedUse = useTemplates[setIndex](set);
+  const vocabTerms = new Set(set.map((item) => item.term.toLowerCase()));
+  const vocabMeanings = new Set(set.map((item) => item.meaning.toLowerCase()));
+  const practiceLooksLikeQuiz =
+    payload.practice.options.length === payload.quiz.options.length &&
+    payload.practice.options.every((option) =>
+      vocabMeanings.has(option.toLowerCase()),
+    );
+  if (practiceLooksLikeQuiz) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "practice",
+      message: "las opciones de práctica son significados en español (deberían ser palabras en inglés)",
+    });
+  }
+  const quizLooksLikePractice =
+    payload.quiz.options.every((option) => vocabTerms.has(option.toLowerCase()));
+  if (quizLooksLikePractice) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "quiz",
+      message: "las opciones del quiz son palabras en inglés (deberían ser significados en español)",
+    });
+  }
+
+  const expected = buildExpectedContentPayload(idLeccion);
+
+  const expectedUse = expected.use;
   const useIssue = validateExercise(
     payload.use,
     expectedUse.options[expectedUse.correctIndex],
@@ -330,6 +604,170 @@ export const validateLessonPayload = (
   );
   if (useIssue) {
     issues.push({ id_leccion: idLeccion, segment: "use", message: useIssue });
+  }
+  if (payload.quiz.prompt.trim() !== expected.quiz.prompt.trim()) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "quiz",
+      message: "el prompt del quiz no coincide con el contenido esperado",
+    });
+  }
+  if (payload.practice.prompt.trim() !== expected.practice.prompt.trim()) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "practice",
+      message: "el prompt de práctica no coincide con el contenido esperado",
+    });
+  }
+  if (payload.use.prompt.trim() !== expected.use.prompt.trim()) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "use",
+      message: "el prompt de uso no coincide con el contenido esperado",
+    });
+  }
+
+  return issues;
+};
+
+/** Evita que quiz y práctica sean la misma pregunta u opciones invertidas. */
+export const validateLessonSegmentDirections = (
+  idLeccion: number,
+  payload: LessonContentPayload,
+): LessonContentIssue[] => {
+  const issues: LessonContentIssue[] = [];
+
+  if (payload.quiz.prompt.trim() === payload.practice.prompt.trim()) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "practice",
+      message: "el prompt de práctica es idéntico al del quiz",
+    });
+  }
+
+  const { set } = getLessonPlan(idLeccion);
+  const vocabTerms = new Set(set.map((item) => item.term.toLowerCase()));
+  const vocabMeanings = new Set(set.map((item) => item.meaning.toLowerCase()));
+
+  const practiceLooksLikeQuiz =
+    payload.practice.options.length > 0 &&
+    payload.practice.options.every((option) =>
+      vocabMeanings.has(option.toLowerCase()),
+    );
+  if (practiceLooksLikeQuiz) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "practice",
+      message:
+        "las opciones de práctica son significados en español (deberían ser palabras en inglés)",
+    });
+  }
+
+  const quizLooksLikePractice =
+    payload.quiz.options.length > 0 &&
+    payload.quiz.options.every((option) => vocabTerms.has(option.toLowerCase()));
+  if (quizLooksLikePractice) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "quiz",
+      message:
+        "las opciones del quiz son palabras en inglés (deberían ser significados en español)",
+    });
+  }
+
+  return issues;
+};
+
+/** Valida contenido ya mezclado (como lo ve el estudiante). */
+export const auditLessonGameplay = (
+  idLeccion: number,
+  content: LessonContent,
+): LessonContentIssue[] => {
+  const issues: LessonContentIssue[] = [];
+  const quiz = content.presentation.quiz;
+  const practice = content.practice;
+  const use = content.use;
+
+  for (const [segment, exercise] of [
+    ["quiz", quiz],
+    ["practice", practice],
+    ["use", use],
+  ] as const) {
+    const issue = validateExerciseStructure(exercise, segment);
+    if (issue) {
+      issues.push({ id_leccion: idLeccion, segment, message: issue });
+    }
+  }
+
+  if (quiz.prompt.trim() === practice.prompt.trim()) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "practice",
+      message: "tras mezclar, quiz y práctica tienen el mismo prompt",
+    });
+  }
+
+  const { setIndex, focusIndex, variant, set, focus } = getLessonPlan(idLeccion);
+
+  const quizAnswerIssue = validateExercise(quiz, focus.meaning, "quiz");
+  if (quizAnswerIssue) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "quiz",
+      message: `tras mezclar: ${quizAnswerIssue}`,
+    });
+  }
+
+  const practiceAnswerIssue = validateExercise(
+    practice,
+    focus.term,
+    "practice",
+  );
+  if (practiceAnswerIssue) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "practice",
+      message: `tras mezclar: ${practiceAnswerIssue}`,
+    });
+  }
+
+  const expectedUse = buildUseExercise(set, setIndex, focusIndex, variant);
+  const useAnswerIssue = validateExercise(
+    use,
+    expectedUse.options[expectedUse.correctIndex],
+    "use",
+  );
+  if (useAnswerIssue) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "use",
+      message: `tras mezclar: ${useAnswerIssue}`,
+    });
+  }
+
+  const vocabTerms = new Set(set.map((item) => item.term.toLowerCase()));
+  const vocabMeanings = new Set(set.map((item) => item.meaning.toLowerCase()));
+
+  if (
+    practice.options.length > 0 &&
+    practice.options.every((option) => vocabMeanings.has(option.toLowerCase()))
+  ) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "practice",
+      message: "tras mezclar: práctica muestra opciones en español",
+    });
+  }
+
+  if (
+    quiz.options.length > 0 &&
+    quiz.options.every((option) => vocabTerms.has(option.toLowerCase()))
+  ) {
+    issues.push({
+      id_leccion: idLeccion,
+      segment: "quiz",
+      message: "tras mezclar: quiz muestra opciones en inglés",
+    });
   }
 
   return issues;
@@ -352,6 +790,65 @@ export const auditAllLessonContent = async () => {
     issues.push(...validateLessonPayload(idLeccion, payload));
   }
 
+  return issues;
+};
+
+export const auditAllLessonGameplay = async () => {
+  await ensureMoaSchema();
+  const client = getDbClient();
+  const lessons = await client.execute({
+    sql: "SELECT id_leccion, titulo FROM leccion ORDER BY id_leccion",
+    args: [],
+  });
+
+  const issues: LessonContentIssue[] = [];
+  for (const row of lessons.rows) {
+    const idLeccion = rowInt(row.id_leccion);
+    const titulo = rowStr(row.titulo);
+    const content = await getLessonContent(idLeccion, titulo);
+    issues.push(...auditLessonGameplay(idLeccion, content));
+  }
+
+  return issues;
+};
+
+/** Detecta lecciones con el mismo contenido (misma competencia u otras). */
+export const auditLessonUniqueness = async (): Promise<LessonContentIssue[]> => {
+  await ensureMoaSchema();
+  const client = getDbClient();
+  const lessons = await client.execute({
+    sql: "SELECT id_leccion FROM leccion ORDER BY id_leccion",
+    args: [],
+  });
+
+  const byFingerprint = new Map<string, number[]>();
+  for (const row of lessons.rows) {
+    const idLeccion = rowInt(row.id_leccion);
+    const payload =
+      (await fetchContentPayload(idLeccion)) ??
+      generateDefaultContentPayload(idLeccion);
+    const fingerprint = [
+      payload.quiz.prompt,
+      payload.practice.prompt,
+      payload.use.prompt,
+      payload.vocabulary.map((v) => v.term).join(","),
+    ].join("||");
+    const group = byFingerprint.get(fingerprint) ?? [];
+    group.push(idLeccion);
+    byFingerprint.set(fingerprint, group);
+  }
+
+  const issues: LessonContentIssue[] = [];
+  for (const ids of byFingerprint.values()) {
+    if (ids.length < 2) continue;
+    for (const id of ids) {
+      issues.push({
+        id_leccion: id,
+        segment: "vocabulary",
+        message: `contenido duplicado con lección(es) ${ids.filter((x) => x !== id).join(", ")}`,
+      });
+    }
+  }
   return issues;
 };
 
@@ -392,29 +889,7 @@ const shuffleExercise = (
 
 export const generateDefaultContentPayload = (
   idLeccion: number,
-): LessonContentPayload => {
-  const setIndex = (idLeccion - 1) % vocabularySets.length;
-  const set = vocabularySets[setIndex];
-  const quizTarget = (idLeccion - 1) % 3;
-  const practiceTarget = (idLeccion + 1) % 3;
-  const focus = set[quizTarget];
-
-  return {
-    summary: `En esta lección practicarás vocabulario básico en inglés. Objetivo: dominar ${focus.term} y expresiones relacionadas.`,
-    vocabulary: set.map((item) => ({ ...item })),
-    quiz: {
-      prompt: `Selecciona el significado correcto de "${set[quizTarget].term}":`,
-      options: set.map((item) => item.meaning),
-      correctIndex: quizTarget,
-    },
-    practice: {
-      prompt: `¿Cuál palabra en inglés corresponde a "${set[practiceTarget].meaning}"?`,
-      options: set.map((item) => item.term),
-      correctIndex: practiceTarget,
-    },
-    use: useTemplates[setIndex](set),
-  };
-};
+): LessonContentPayload => buildExpectedContentPayload(idLeccion);
 
 export const repairAllLessonContent = async () => {
   await ensureMoaSchema();
@@ -433,8 +908,12 @@ export const repairAllLessonContent = async () => {
       idLeccion,
       stored ?? expected,
     );
+    const directionIssues = validateLessonSegmentDirections(
+      idLeccion,
+      stored ?? expected,
+    );
 
-    if (!stored || issues.length > 0) {
+    if (!stored || issues.length > 0 || directionIssues.length > 0) {
       await saveLessonContentPayload(idLeccion, expected);
       repaired += 1;
     }
@@ -521,7 +1000,10 @@ export const saveLessonContentPayload = async (
   idLeccion: number,
   payload: LessonContentPayload,
 ) => {
-  const issues = validateLessonPayloadStructure(idLeccion, payload);
+  const issues = [
+    ...validateLessonPayloadStructure(idLeccion, payload),
+    ...validateLessonSegmentDirections(idLeccion, payload),
+  ];
   if (issues.length > 0) {
     throw new Error(
       `Contenido inválido: ${issues.map((i) => i.message).join("; ")}`,
