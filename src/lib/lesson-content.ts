@@ -39,15 +39,15 @@ export type LessonContentPayload = {
 /** Reparte vocabulario temático: ver lesson-vocabulary.ts */
 
 const QUIZ_PROMPTS = [
-  (term: string) => `Selecciona el significado correcto de "${term}":`,
-  (term: string) => `¿Qué significa "${term}" en español?`,
-  (term: string) => `Elige la traducción correcta de "${term}":`,
+  (term: string) => `Select the correct meaning of "${term}":`,
+  (term: string) => `What does "${term}" mean in Spanish?`,
+  (term: string) => `Choose the correct translation of "${term}":`,
 ] as const;
 
 const PRACTICE_PROMPTS = [
-  (meaning: string) => `¿Cuál palabra en inglés corresponde a "${meaning}"?`,
-  (meaning: string) => `¿Cómo se dice "${meaning}" en inglés?`,
-  (meaning: string) => `Elige la palabra en inglés para "${meaning}":`,
+  (meaning: string) => `Which English word matches "${meaning}"?`,
+  (meaning: string) => `How do you say "${meaning}" in English?`,
+  (meaning: string) => `Choose the English word for "${meaning}":`,
 ] as const;
 
 const vocabUseExercise = (
@@ -498,7 +498,7 @@ const buildUseExercise = (
   return vocabUseExercise(
     set,
     focusIndex,
-    `Usa «${focus.meaning}» en inglés. Completa: "${sentence}"`,
+    `Use «${focus.meaning}» in English. Complete: "${sentence}"`,
     distractor,
   );
 };

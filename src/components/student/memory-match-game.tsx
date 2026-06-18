@@ -134,7 +134,7 @@ export const MemoryMatchGame = component$(
       <div class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50/80 px-4 py-3">
           <p class="text-sm font-bold text-violet-800">
-            Parejas encontradas: {solved.value}/{total}
+            Pairs found: {solved.value}/{total}
           </p>
           <p class="text-sm font-mono font-bold text-violet-600">
             ⏱ {formatTime(elapsed.value)}
@@ -142,7 +142,7 @@ export const MemoryMatchGame = component$(
         </div>
 
         <p class="text-center text-sm font-semibold text-violet-800">
-          Une cada emoji con su palabra en inglés
+          Match each emoji with its English word
         </p>
 
         <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4">

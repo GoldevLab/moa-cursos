@@ -103,7 +103,7 @@ export const MatchPairsGame = component$(
       <div class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50/80 px-4 py-3">
           <p class="text-sm font-bold text-violet-800">
-            Parejas: {linkedCount}/{pairList.length}
+            Pairs: {linkedCount}/{pairList.length}
           </p>
           <p class="text-sm font-mono font-bold text-violet-600">
             ⏱ {formatTime(elapsed.value)}
@@ -111,7 +111,7 @@ export const MatchPairsGame = component$(
         </div>
 
         <p class="text-center text-sm font-semibold text-violet-800">
-          Toca una palabra en inglés y luego su significado en español
+          Tap an English word, then its Spanish meaning
         </p>
 
         <div class="grid gap-4 md:grid-cols-2">
@@ -159,7 +159,7 @@ export const MatchPairsGame = component$(
                           </p>
                         ) : (
                           <p class="mt-1 text-xs text-slate-400">
-                            {selected ? "Ahora elige el significado →" : "Toca para elegir"}
+                            {selected ? "Now pick the meaning →" : "Tap to select"}
                           </p>
                         )}
                       </div>

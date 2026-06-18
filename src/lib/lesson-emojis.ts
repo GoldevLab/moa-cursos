@@ -274,20 +274,20 @@ export const SEGMENT_MASCOT: Record<
 > = {
   presentation: {
     emoji: "📖",
-    label: "Aprende",
-    title: "¡Descubre!",
-    hint: "Conoce las palabras nuevas y su significado",
+    label: "Learn",
+    title: "Discover!",
+    hint: "Learn new words and what they mean",
   },
   practice: {
     emoji: "🎮",
-    label: "Juega",
-    title: "¡Practica!",
-    hint: "Juega y demuestra lo que aprendiste",
+    label: "Play",
+    title: "Practice!",
+    hint: "Play and show what you learned",
   },
   use: {
     emoji: "💬",
-    label: "Usa",
-    title: "¡Úsalo!",
-    hint: "Completa frases en inglés con las palabras",
+    label: "Use",
+    title: "Use it!",
+    hint: "Complete English sentences with the words",
   },
 };

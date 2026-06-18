@@ -45,11 +45,12 @@ export const LessonSegmentGameArena = component$(
     disabled: boolean;
     saving: boolean;
     pictureRound: {
-      prompt: string;
-      options: PictureChoiceOption[];
-      correctTerm: string;
-      englishTerm?: string;
-      sentence?: string;
+    prompt: string;
+    options: PictureChoiceOption[];
+    correctTerm: string;
+    englishTerm?: string;
+    spanishMeaning?: string;
+    sentence?: string;
       hintMeaning?: string;
     };
     meaningRound: {
@@ -101,7 +102,7 @@ export const LessonSegmentGameArena = component$(
               {props.pictureRound.hintMeaning ? (
                 <div class="mt-2 flex items-center justify-center gap-2">
                   <p class="text-sm font-semibold text-slate-600">
-                    💡 Pista: {props.pictureRound.hintMeaning}
+                    💡 Hint: {props.pictureRound.hintMeaning}
                   </p>
                   <button
                     type="button"
@@ -123,6 +124,7 @@ export const LessonSegmentGameArena = component$(
             options={props.pictureRound.options}
             seed={props.gameSeed}
             englishTerm={props.pictureRound.englishTerm}
+            spanishMeaning={props.pictureRound.spanishMeaning}
             hintMeaning={usePictureHeader ? undefined : props.pictureRound.hintMeaning}
             showTermLabels={props.segment === "use"}
             disabled={props.disabled}

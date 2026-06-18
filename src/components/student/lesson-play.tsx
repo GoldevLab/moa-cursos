@@ -28,16 +28,16 @@ const MISSION_DIRECTION: Record<
   { badge: string; subtitle: string }
 > = {
   presentation: {
-    badge: "Inglés → Español",
-    subtitle: "Elige el significado correcto en español",
+    badge: "English → Spanish",
+    subtitle: "Choose the correct meaning in Spanish",
   },
   practice: {
-    badge: "Español → Inglés",
-    subtitle: "Elige la palabra correcta en inglés",
+    badge: "Spanish → English",
+    subtitle: "Choose the correct word in English",
   },
   use: {
-    badge: "Completa la frase",
-    subtitle: "Usa la pista en español y elige la palabra en inglés que encaja",
+    badge: "Complete the sentence",
+    subtitle: "Use the Spanish hint and pick the English word that fits",
   },
 };
 

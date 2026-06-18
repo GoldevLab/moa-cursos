@@ -310,6 +310,7 @@ export const buildPictureChoiceRound = (
   seed: number,
 ): {
   prompt: string;
+  spanishMeaning: string;
   englishTerm: string;
   options: PictureChoiceOption[];
   correctTerm: string;
@@ -335,7 +336,8 @@ export const buildPictureChoiceRound = (
   );
   const english = cap(focus.term);
   return {
-    prompt: "Elige la imagen correcta",
+    prompt: "Choose the correct image",
+    spanishMeaning: focus.meaning,
     englishTerm: english,
     options,
     correctTerm: focus.term.toLowerCase(),
@@ -368,7 +370,7 @@ export const buildMeaningChoiceRound = (
   }
   const options = fisherYatesShuffle(rawOptions, seed);
   return {
-    prompt: "Elige su significado en español",
+    prompt: "Choose the correct meaning in Spanish",
     emoji: getOptionEmoji(focus.term),
     term: cap(focus.term),
     options,
@@ -403,7 +405,7 @@ export const buildUsePictureRound = (
     fisherYatesShuffle(rawOptions, seed),
   );
   return {
-    prompt: "Elige la palabra correcta",
+    prompt: "Choose the correct word",
     sentence: formatSentenceOrderTemplate(sentenceWithBlank),
     hintMeaning: meaningHint,
     options,
@@ -412,7 +414,7 @@ export const buildUsePictureRound = (
 };
 
 const spellingLetterLabel = (count: number) =>
-  count === 1 ? "1 letra" : `${count} letras`;
+  count === 1 ? "1 letter" : `${count} letters`;
 
 export const buildSpellingRound = (
   focus: VocabItem,
@@ -432,14 +434,14 @@ export const buildSpellingRound = (
   let instruction: string;
 
   if (contextHint) {
-    prompt = "Completa la palabra en la frase";
-    instruction = `Toca las letras de abajo para escribir la palabra en inglés (${letterLabel})`;
+    prompt = "Complete the word in the sentence";
+    instruction = `Tap the letters below to write the word in English (${letterLabel})`;
   } else if (suppressSpanishHint) {
-    prompt = "Escribe la palabra en inglés";
-    instruction = `Mira el emoji y toca las letras una por una (${letterLabel})`;
+    prompt = "Write the word in English";
+    instruction = `Look at the emoji and tap the letters one by one (${letterLabel})`;
   } else {
-    prompt = `¿Cómo se dice «${focus.meaning}» en inglés?`;
-    instruction = `Toca las letras de abajo para armar la palabra (${letterLabel})`;
+    prompt = `How do you say «${focus.meaning}» in English?`;
+    instruction = `Tap the letters below to build the word (${letterLabel})`;
   }
 
   return {
@@ -464,7 +466,7 @@ export const buildSentenceOrderRound = (
 ): SentenceOrderRound => {
   const words = tokenizeSentenceOrderWords(sentenceFilled);
   return {
-    prompt: "Ordena las palabras en inglés",
+    prompt: "Put the words in English order",
     hintMeaning: meaning,
     sentenceWithBlank: formatSentenceOrderTemplate(sentenceTemplate),
     shuffledWords: fisherYatesShuffle(words, seed),
@@ -665,39 +667,39 @@ const GAME_UI_BASE: Record<
 > = {
   picture_choice: {
     emoji: "🖼️",
-    title: "¡Elige la imagen!",
-    hint: "Elige la imagen que corresponde",
-    badge: "Palabra en inglés",
+    title: "Choose the image!",
+    hint: "Pick the image that matches",
+    badge: "English word",
   },
   meaning_choice: {
     emoji: "💬",
-    title: "¡Adivina el significado!",
-    hint: "Elige su significado en español",
-    badge: "Significado correcto",
+    title: "Guess the meaning!",
+    hint: "Choose the correct meaning in Spanish",
+    badge: "Correct meaning",
   },
   memory_match: {
     emoji: "🧩",
-    title: "¡Memoria MOA!",
-    hint: "Voltea las tarjetas y une cada emoji con su palabra en inglés",
-    badge: "Juego de memoria",
+    title: "MOA Memory!",
+    hint: "Flip the cards and match each emoji with its English word",
+    badge: "Memory game",
   },
   spelling_build: {
     emoji: "🔤",
-    title: "¡Arma la palabra!",
-    hint: "Toca las letras en orden para escribir la palabra en inglés",
-    badge: "Ortografía",
+    title: "Build the word!",
+    hint: "Tap the letters in order to spell the English word",
+    badge: "Spelling",
   },
   match_pairs: {
     emoji: "🔗",
-    title: "¡Empareja!",
-    hint: "Toca una palabra en inglés y luego su significado en español",
-    badge: "Une las parejas",
+    title: "Match pairs!",
+    hint: "Tap an English word, then its Spanish meaning",
+    badge: "Match the pairs",
   },
   sentence_order: {
     emoji: "🧱",
-    title: "¡Ordena la frase!",
-    hint: "Toca las palabras en el orden correcto para formar la oración",
-    badge: "Frase en orden",
+    title: "Order the sentence!",
+    hint: "Tap the words in the correct order to form the sentence",
+    badge: "Sentence order",
   },
 };
 
@@ -709,23 +711,23 @@ export const getSegmentGameUi = (
   if (segment === "use" && gameType === "picture_choice") {
     return {
       ...base,
-      title: "¡Completa la frase!",
-      hint: "Lee la oración y elige la palabra en inglés que encaja",
-      badge: "Completa la frase",
+      title: "Complete the sentence!",
+      hint: "Read the sentence and choose the English word that fits",
+      badge: "Complete the sentence",
     };
   }
   if (segment === "practice" && gameType === "picture_choice") {
     return {
       ...base,
-      title: "¡Encuentra la palabra!",
-      hint: "Elige la imagen correcta",
+      title: "Find the word!",
+      hint: "Choose the correct image",
     };
   }
   if (segment === "use" && gameType === "spelling_build") {
     return {
       ...base,
-      title: "¡Escribe la palabra!",
-      hint: "Completa la frase escribiendo la palabra en inglés con las letras",
+      title: "Write the word!",
+      hint: "Complete the sentence by spelling the English word with the letters",
     };
   }
   return base;

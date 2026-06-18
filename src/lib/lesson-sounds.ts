@@ -144,8 +144,80 @@ const loadSpeechVoices = (): Promise<SpeechSynthesisVoice[]> => {
   });
 };
 
+const INSTRUCTION_SPEECH_RULES: Array<{
+  match: RegExp;
+  speech: (groups: RegExpMatchArray) => string;
+}> = [
+  {
+    match: /^Choose the correct image$/,
+    speech: () => "Elige la imagen correcta",
+  },
+  {
+    match: /^Choose the correct meaning in Spanish$/,
+    speech: () => "Elige su significado en español",
+  },
+  {
+    match: /^Choose the correct word$/,
+    speech: () => "Elige la palabra correcta",
+  },
+  {
+    match: /^Complete the word in the sentence$/,
+    speech: () => "Completa la palabra en la frase",
+  },
+  {
+    match: /^Write the word in English$/,
+    speech: () => "Escribe la palabra en inglés",
+  },
+  {
+    match: /^Put the words in English order$/,
+    speech: () => "Ordena las palabras en inglés",
+  },
+  {
+    match: /^How do you say «(.+)» in English\?$/,
+    speech: (m) => `¿Cómo se dice «${m[1]}» en inglés?`,
+  },
+  {
+    match: /^Select the correct meaning of "(.+)":$/,
+    speech: (m) => `Selecciona el significado correcto de "${m[1]}":`,
+  },
+  {
+    match: /^What does "(.+)" mean in Spanish\?$/,
+    speech: (m) => `¿Qué significa "${m[1]}" en español?`,
+  },
+  {
+    match: /^Choose the correct translation of "(.+)":$/,
+    speech: (m) => `Elige la traducción correcta de "${m[1]}":`,
+  },
+  {
+    match: /^Which English word matches "(.+)"\?$/,
+    speech: (m) => `¿Cuál palabra en inglés corresponde a "${m[1]}"?`,
+  },
+  {
+    match: /^How do you say "(.+)" in English\?$/,
+    speech: (m) => `¿Cómo se dice "${m[1]}" en inglés?`,
+  },
+  {
+    match: /^Choose the English word for "(.+)":$/,
+    speech: (m) => `Elige la palabra en inglés para "${m[1]}":`,
+  },
+  {
+    match: /^Use «(.+)» in English\. Complete: "(.+)"$/,
+    speech: (m) => `Usa «${m[1]}» en inglés. Completa: "${m[2]}"`,
+  },
+];
+
+/** UI instructions are shown in English but read aloud in Spanish. */
+export const instructionSpeechText = (displayText: string): string => {
+  const trimmed = displayText.trim();
+  for (const rule of INSTRUCTION_SPEECH_RULES) {
+    const match = trimmed.match(rule.match);
+    if (match) return rule.speech(match);
+  }
+  return trimmed;
+};
+
 const ENGLISH_HINT =
-  /\b(I|you|he|she|we|they|my|your|the|a|an|is|are|am|do|don't|can|will|have|how|what|see|every|day|today|this|love|read|drink|feel|go|school|by|count|like|in|class|carefully|open|shining|morning|afternoon|pet|favorite|color|hello|goodbye|thank|please)\b/i;
+  /\b(I|you|he|she|we|they|my|your|the|a|an|is|are|am|do|don't|can|will|have|how|what|see|every|day|today|this|love|read|drink|feel|go|school|by|count|like|in|class|carefully|open|shining|morning|afternoon|pet|favorite|color|hello|goodbye|thank|please|choose|select|which|complete|write|put|order|tap|match|flip|pick|find|build|guess|sentence|word|image|meaning|english|spanish)\b/i;
 
 const SPANISH_HINT =
   /\b(el|la|los|las|de|del|que|un|una|es|son|con|por|para|muy|hola|gracias|cuál|qué|selecciona|completa|corresponde|significado|frase|palabra|inglés|español|objetivo|practicarás|dominar)\b/i;
@@ -275,7 +347,7 @@ export const auditSpeechText = (
     return issues;
   }
 
-  const chunks = parseLessonPrompt(text, segment);
+  const chunks = parseLessonPrompt(instructionSpeechText(text), segment);
   const audible = chunks.filter(isAudibleChunk);
   if (audible.length === 0) {
     issues.push(`${field}: sin contenido audible`);
@@ -390,14 +462,15 @@ const speakChunks = async (chunks: SpeechChunk[]) => {
   }
 };
 
-/** Prompt: instrucciones en español + inglés/español en comillas según misión. */
+/** Prompt: Spanish instructions + English/Spanish in quotes per mission. */
 export const speakLessonText = async (
   text: string,
   segment: LessonSegment,
 ) => {
   const trimmed = text.trim();
   if (!trimmed) return;
-  await speakChunks(parseLessonPrompt(trimmed, segment));
+  const speechText = instructionSpeechText(trimmed);
+  await speakChunks(parseLessonPrompt(speechText, segment));
 };
 
 /** Opción de respuesta según misión (presentación=es, práctica/uso=en). */

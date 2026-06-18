@@ -78,7 +78,7 @@ export const SentenceOrderGame = component$(
                     ].join(" ")}
                   >
                     <p class="text-sm font-semibold text-amber-900">
-                      Pista: «{props.round.hintMeaning}»
+                      Hint: «{props.round.hintMeaning}»
                     </p>
                     <button
                       type="button"
@@ -109,7 +109,7 @@ export const SentenceOrderGame = component$(
 
         <div class="min-h-[4.5rem] rounded-2xl border-2 border-dashed border-amber-300 bg-white px-4 py-4">
           <p class="text-lg font-bold leading-relaxed text-slate-800">
-            {built.value.length > 0 ? built.value.join(" ") : "Toca las palabras abajo…"}
+            {built.value.length > 0 ? built.value.join(" ") : "Tap the words below…"}
           </p>
         </div>
 
@@ -134,7 +134,7 @@ export const SentenceOrderGame = component$(
             onClick$={removeLast}
             class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
-            Quitar última
+            Remove last
           </button>
           <button
             type="button"
@@ -142,7 +142,7 @@ export const SentenceOrderGame = component$(
             onClick$={reset}
             class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
-            Reiniciar
+            Reset
           </button>
           <button
             type="button"

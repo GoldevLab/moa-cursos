@@ -94,7 +94,7 @@ export const SpellingBuildGame = component$(
 
         <div class="rounded-xl border-2 border-slate-200 bg-slate-50 px-3 py-4">
           <p class="mb-2 text-center text-xs font-bold uppercase tracking-wide text-slate-500">
-            Tu palabra en inglés
+            Your word in English
           </p>
           <div class="flex flex-wrap justify-center gap-2">
             {slots.map((_, index) => {

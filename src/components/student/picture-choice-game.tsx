@@ -10,6 +10,7 @@ export const PictureChoiceGame = component$(
     options: PictureChoiceOption[];
     seed: number;
     englishTerm?: string;
+    spanishMeaning?: string;
     hintMeaning?: string;
     showTermLabels?: boolean;
     disabled?: boolean;
@@ -52,14 +53,16 @@ export const PictureChoiceGame = component$(
               <p class="text-3xl font-black tracking-wide text-slate-900">
                 {props.englishTerm}
               </p>
-              <button
-                type="button"
-                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-700 transition hover:bg-violet-100"
-                aria-label={`Escuchar ${props.englishTerm}`}
-                onClick$={() => void speakWord(props.englishTerm!, "en")}
-              >
-                <LuVolume2 class="h-4 w-4" />
-              </button>
+              {props.spanishMeaning ? (
+                <button
+                  type="button"
+                  class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-700 transition hover:bg-violet-100"
+                  aria-label={`Listen to ${props.spanishMeaning}`}
+                  onClick$={() => void speakWord(props.spanishMeaning!, "es")}
+                >
+                  <LuVolume2 class="h-4 w-4" />
+                </button>
+              ) : null}
             </div>
           ) : null}
           <p
@@ -73,7 +76,7 @@ export const PictureChoiceGame = component$(
           </p>
           {props.hintMeaning ? (
             <p class="mt-2 text-sm font-semibold text-slate-600">
-              💡 Pista: {props.hintMeaning}
+              💡 Hint: {props.hintMeaning}
             </p>
           ) : null}
         </div>
@@ -106,7 +109,7 @@ export const PictureChoiceGame = component$(
                   </span>
                 ) : isSelected ? (
                   <span class="mt-2 text-xs font-bold uppercase tracking-wide text-violet-600">
-                    Elegida
+                    Selected
                   </span>
                 ) : null}
               </button>
