@@ -122,6 +122,10 @@ export type SpellingRound = {
   /** Si la pista en español podría confundir (se forma con letras del inglés). */
   suppressSpanishHint?: boolean;
   contextHint?: string;
+  /** Pregunta principal, clara para niños. */
+  prompt: string;
+  /** Instrucción paso a paso debajo de la pregunta. */
+  instruction: string;
 };
 
 export type SentenceOrderRound = {
@@ -351,6 +355,9 @@ export const buildUsePictureRound = (
   };
 };
 
+const spellingLetterLabel = (count: number) =>
+  count === 1 ? "1 letra" : `${count} letras`;
+
 export const buildSpellingRound = (
   focus: VocabItem,
   seed: number,
@@ -362,14 +369,33 @@ export const buildSpellingRound = (
   const suppressSpanishHint =
     meaningNorm !== answer &&
     canSpellWithLetters(meaningNorm, answer.split(""));
+  const letterCount = answer.length;
+  const letterLabel = spellingLetterLabel(letterCount);
+
+  let prompt: string;
+  let instruction: string;
+
+  if (contextHint) {
+    prompt = "Completa la palabra en la frase";
+    instruction = `Toca las letras de abajo para escribir la palabra en inglés (${letterLabel})`;
+  } else if (suppressSpanishHint) {
+    prompt = "Escribe la palabra en inglés";
+    instruction = `Mira el emoji y toca las letras una por una (${letterLabel})`;
+  } else {
+    prompt = `¿Cómo se dice «${focus.meaning}» en inglés?`;
+    instruction = `Toca las letras de abajo para armar la palabra (${letterLabel})`;
+  }
+
   return {
     answer,
     letters,
     emoji: getOptionEmoji(focus.term),
     meaning: focus.meaning,
-    letterCount: answer.length,
+    letterCount,
     suppressSpanishHint,
     contextHint,
+    prompt,
+    instruction,
   };
 };
 

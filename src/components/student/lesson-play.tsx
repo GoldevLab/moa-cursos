@@ -215,6 +215,11 @@ export const LessonGameStepper = component$(
       practice: passed.practice,
       use: passed.use,
     };
+    const perfect = {
+      presentation: props.presentationPerfect === true,
+      practice: props.practicePerfect === true,
+      use: props.usePerfect === true,
+    };
 
     return (
       <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
@@ -224,6 +229,7 @@ export const LessonGameStepper = component$(
           const isActive = props.current === key;
           const isUnlocked = unlocked[key];
           const isDone = done[key];
+          const isPerfect = perfect[key];
 
           return (
             <button
@@ -232,30 +238,57 @@ export const LessonGameStepper = component$(
               disabled={!isUnlocked}
               onClick$={() => props.onSelect$(key)}
               class={[
-                "relative overflow-hidden rounded-xl border px-2 py-2 text-center transition-all sm:px-3 sm:py-2.5",
+                "relative overflow-hidden rounded-xl border px-2 py-2.5 text-center transition-all sm:px-3 sm:py-3",
                 isActive
                   ? `border-transparent bg-gradient-to-br ${theme.gradient} text-white shadow-md ${theme.glow}`
                   : isUnlocked
-                    ? "border-slate-200 bg-white text-slate-800 hover:border-indigo-200"
+                    ? "border-slate-200 bg-white text-slate-800 hover:border-indigo-200 hover:shadow-sm"
                     : "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400",
               ].join(" ")}
             >
-              <div class="flex items-center justify-center gap-1.5">
-                <span class="text-base leading-none sm:text-lg">
-                  {isDone ? "✓" : mascot.emoji}
+              <div class="relative mx-auto flex h-11 w-11 items-center justify-center sm:h-12 sm:w-12">
+                <span
+                  class={[
+                    "flex h-full w-full items-center justify-center rounded-2xl text-2xl leading-none shadow-sm sm:text-[1.65rem]",
+                    isActive
+                      ? "bg-white/20 ring-2 ring-white/30"
+                      : isUnlocked
+                        ? theme.chip
+                        : "bg-slate-100",
+                  ].join(" ")}
+                  aria-hidden="true"
+                >
+                  {mascot.emoji}
                 </span>
-                {!isUnlocked ? <LuLock class="h-3 w-3 opacity-60" /> : null}
+                {isDone ? (
+                  <span
+                    class={[
+                      "absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black leading-none ring-2",
+                      isPerfect
+                        ? "bg-amber-400 text-amber-950 ring-white"
+                        : "bg-emerald-500 text-white ring-white",
+                    ].join(" ")}
+                    aria-hidden="true"
+                  >
+                    {isPerfect ? "⭐" : "✓"}
+                  </span>
+                ) : null}
+                {!isUnlocked ? (
+                  <span class="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-100/80 backdrop-blur-[1px]">
+                    <LuLock class="h-4 w-4 text-slate-500" />
+                  </span>
+                ) : null}
               </div>
-              <p class="mt-1 truncate text-[11px] font-black leading-tight sm:text-xs">
+              <p class="mt-1.5 truncate text-[11px] font-black leading-tight sm:text-xs">
                 {SEGMENT_LABELS[key]}
               </p>
               <p
                 class={[
-                  "text-[10px] font-semibold leading-tight",
+                  "truncate text-[10px] font-semibold leading-tight",
                   isActive ? "text-white/85" : "text-slate-500",
                 ].join(" ")}
               >
-                {SEGMENT_POINTS[key]} XP{isDone ? " ✓" : ""}
+                {mascot.label} · {SEGMENT_POINTS[key]} XP
               </p>
             </button>
           );

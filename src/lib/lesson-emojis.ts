@@ -212,20 +212,26 @@ export const getDistinctOptionEmojisForChoices = (
   });
 };
 
-export const SEGMENT_MASCOT: Record<string, { emoji: string; title: string; hint: string }> = {
+export const SEGMENT_MASCOT: Record<
+  string,
+  { emoji: string; title: string; hint: string; label: string }
+> = {
   presentation: {
-    emoji: "🧠",
+    emoji: "📖",
+    label: "Aprende",
     title: "¡Descubre!",
-    hint: "Lee el objetivo y elige la respuesta correcta",
+    hint: "Conoce las palabras nuevas y su significado",
   },
   practice: {
-    emoji: "🎯",
+    emoji: "🎮",
+    label: "Juega",
     title: "¡Practica!",
-    hint: "Demuestra lo que aprendiste",
+    hint: "Juega y demuestra lo que aprendiste",
   },
   use: {
-    emoji: "🚀",
+    emoji: "💬",
+    label: "Usa",
     title: "¡Úsalo!",
-    hint: "Lee la pista en español («azul», «gato»…) y completa la frase en inglés",
+    hint: "Completa frases en inglés con las palabras",
   },
 };
