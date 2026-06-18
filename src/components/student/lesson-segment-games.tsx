@@ -11,7 +11,6 @@ import {
   buildSpellingRound,
   buildUsePictureRound,
   fillUseSentenceBlank,
-  getSegmentGameUi,
   type MeaningChoiceOption,
   type MemoryPair,
   type MatchPairItem,
@@ -33,13 +32,7 @@ const shellClass = (segment: LessonSegment) => {
       : segment === "practice"
         ? "border-violet-200/80"
         : "border-amber-200/80";
-  return ["rounded-2xl border-2 bg-white/90 p-5 sm:p-6", border].join(" ");
-};
-
-const chipClass = (segment: LessonSegment) => {
-  if (segment === "presentation") return "bg-sky-100 text-sky-800";
-  if (segment === "practice") return "bg-violet-100 text-violet-800";
-  return "bg-amber-100 text-amber-900";
+  return ["rounded-xl border bg-white/90 p-3 sm:p-4", border].join(" ");
 };
 
 export const LessonSegmentGameArena = component$(
@@ -70,19 +63,10 @@ export const LessonSegmentGameArena = component$(
     onSubmit$: (submission: GameSubmission) => void;
   }) => {
     const { segment, gameType } = props;
-    const ui = getSegmentGameUi(segment, gameType);
 
     if (gameType === "meaning_choice") {
       return (
         <div class={shellClass(segment)}>
-          <p
-            class={[
-              "mb-4 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
-              chipClass(segment),
-            ].join(" ")}
-          >
-            {ui.badge}
-          </p>
           <MeaningChoiceGame
             key={`meaning-${props.gameSeed}`}
             prompt={props.meaningRound.prompt}
@@ -103,14 +87,6 @@ export const LessonSegmentGameArena = component$(
     if (gameType === "picture_choice") {
       return (
         <div class={shellClass(segment)}>
-          <p
-            class={[
-              "mb-4 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
-              chipClass(segment),
-            ].join(" ")}
-          >
-            {ui.badge}
-          </p>
           {props.pictureRound.sentence ? (
             <p class="mb-4 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-center text-xl font-black text-amber-950">
               {props.pictureRound.sentence}
@@ -137,14 +113,6 @@ export const LessonSegmentGameArena = component$(
     if (gameType === "memory_match") {
       return (
         <div class={shellClass(segment)}>
-          <p
-            class={[
-              "mb-4 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
-              chipClass(segment),
-            ].join(" ")}
-          >
-            {ui.badge}
-          </p>
           <MemoryMatchGame
             key={`memory-${props.gameSeed}`}
             pairs={props.memoryPairs}
@@ -159,14 +127,6 @@ export const LessonSegmentGameArena = component$(
     if (gameType === "spelling_build") {
       return (
         <div class={shellClass(segment)}>
-          <p
-            class={[
-              "mb-4 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
-              chipClass(segment),
-            ].join(" ")}
-          >
-            {ui.badge}
-          </p>
           <SpellingBuildGame
             key={`spelling-${props.gameSeed}`}
             round={props.spellingRound}
@@ -183,14 +143,6 @@ export const LessonSegmentGameArena = component$(
     if (gameType === "sentence_order") {
       return (
         <div class={shellClass(segment)}>
-          <p
-            class={[
-              "mb-4 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
-              chipClass(segment),
-            ].join(" ")}
-          >
-            {ui.badge}
-          </p>
           <SentenceOrderGame
             key={`sentence-${props.gameSeed}`}
             round={props.sentenceRound}
@@ -206,14 +158,6 @@ export const LessonSegmentGameArena = component$(
 
     return (
       <div class={shellClass(segment)}>
-        <p
-          class={[
-            "mb-4 inline-flex rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide",
-            chipClass(segment),
-          ].join(" ")}
-        >
-          {ui.badge}
-        </p>
         <MatchPairsGame
           key={`match-${props.gameSeed}`}
           pairs={props.matchPairs}

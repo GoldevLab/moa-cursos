@@ -16,7 +16,6 @@ import {
   LessonGameHeader,
   LessonGameStepper,
   LessonMissionCompleteOverlay,
-  LessonSegmentIntro,
   LessonSummaryCard,
   LessonTrophyToast,
   LessonVictoryModal,
@@ -26,9 +25,6 @@ import {
   buildSegmentGameRounds,
   LessonSegmentGameArena,
 } from "~/components/student/lesson-segment-games";
-import {
-  BreadcrumbTrail,
-} from "~/components/student/student-ui";
 import { NavLink } from "~/components/ui/nav-link";
 import { MAX_POINTS_PER_LESSON, SEGMENT_POINTS } from "~/lib/constants";
 import type { LessonSegment } from "~/lib/constants";
@@ -59,7 +55,6 @@ import { getLessonPlan } from "~/lib/lesson-vocabulary";
 import {
   gameSeedForLesson,
   getSegmentGameType,
-  getSegmentGameUi,
   gradeGameSubmission,
   isGameSubmissionPerfect,
   scoreFromRatio,
@@ -341,7 +336,6 @@ export default component$(() => {
     page.lesson.id_leccion,
     segment.value,
   );
-  const segmentGameUi = getSegmentGameUi(segment.value, segmentGameType);
   const gameRounds = buildSegmentGameRounds({
     segment: segment.value,
     gameType: segmentGameType,
@@ -557,18 +551,7 @@ export default component$(() => {
   });
 
   return (
-    <div class="space-y-6 moa-fade-up">
-      <BreadcrumbTrail
-        items={[
-          { label: "Mi campus", href: routes.estudiante.campus },
-          {
-            label: page.lesson.competencia,
-            href: routes.estudiante.competencia(page.lesson.id_competencia),
-          },
-          { label: page.lesson.titulo },
-        ]}
-      />
-
+    <div class="space-y-3 moa-fade-up">
       <LessonGameHeader
         competencia={page.lesson.competencia}
         titulo={page.lesson.titulo}
@@ -576,6 +559,7 @@ export default component$(() => {
         score={progress.puntaje_total}
         esPerfecta={progress.es_perfecta}
         completada={progress.completada}
+        reviewMode={isReviewMode && !victoryOpen.value}
       />
 
       <LessonGameStepper
@@ -590,30 +574,14 @@ export default component$(() => {
         onSelect$={selectSegment}
       />
 
-      {isReviewMode && !victoryOpen.value ? (
-        <p class="rounded-2xl border-2 border-sky-200 bg-sky-50 px-4 py-3 text-sm font-semibold text-sky-800">
-          🎮 Modo repaso: practica las 3 misiones y al terminar Uso podrás ir a la
-          siguiente lección.
-        </p>
-      ) : null}
-
-      <section class="moa-lesson-arena relative rounded-3xl border border-indigo-100/80 p-6 shadow-lg sm:p-8">
+      <section class="moa-lesson-arena relative rounded-2xl border border-indigo-100/80 p-3 shadow-md sm:p-4">
         <LessonCelebrateBurst active={celebrate.value} />
-        <LessonSegmentIntro
-          key={segment.value}
-          segment={segment.value}
-          gameEmoji={segmentGameUi.emoji}
-          gameTitle={segmentGameUi.title}
-          gameHint={segmentGameUi.hint}
-        />
 
-        {segment.value === "presentation" ? (
-          <div class="mb-6">
-            <LessonSummaryCard
-              summary={page.content.presentation.summary}
-              englishTerms={page.content.presentation.vocabulary.map((v) => v.term)}
-            />
-          </div>
+        {segment.value === "presentation" && !isReviewMode ? (
+          <LessonSummaryCard
+            summary={page.content.presentation.summary}
+            englishTerms={page.content.presentation.vocabulary.map((v) => v.term)}
+          />
         ) : null}
 
         <LessonSegmentGameArena
@@ -647,46 +615,41 @@ export default component$(() => {
         !progress.practice_completada &&
         !feedback.value &&
         page.content.presentation.vocabulary.length > 0 ? (
-          <div class="mt-6 rounded-2xl border-2 border-indigo-100 bg-indigo-50/60 p-4">
-            <p class="text-sm font-black text-indigo-800">📚 Vocabulario de la lección</p>
+          <div class="mt-3 rounded-xl border border-indigo-100 bg-indigo-50/60 p-3">
+            <p class="text-xs font-black text-indigo-800">📚 Vocabulario</p>
             <LessonVocabReveal items={page.content.presentation.vocabulary} />
           </div>
         ) : null}
       </section>
 
       {isReviewMode && !victoryOpen.value ? (
-        <div class="relative overflow-hidden rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 via-teal-50 to-sky-50 p-6 sm:p-8 moa-pop">
-          <div class="absolute -right-4 -top-4 text-6xl opacity-20">🏆</div>
-          <p class="inline-flex items-center gap-2 text-xl font-black text-emerald-900">
-            <LuPartyPopper class="h-6 w-6" />
-            ¡Lección completada!
+        <div class="rounded-2xl border border-emerald-200 bg-emerald-50/90 p-3 sm:p-4">
+          <p class="text-sm font-black text-emerald-900">
+            <LuPartyPopper class="mr-1 inline h-4 w-4" />
+            Siguiente lección desbloqueada
           </p>
-          <p class="mt-2 text-emerald-800">
-            La siguiente lección ya está desbloqueada. Tu progreso se guardó y no
-            retrocederá.
-          </p>
-          <div class="mt-5 flex flex-wrap gap-3">
+          <div class="mt-2 flex flex-wrap gap-2">
             <NavLink
               href={routes.estudiante.competencia(page.lesson.id_competencia)}
-              class="rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600"
+              class="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-600"
             >
               Ver más lecciones
             </NavLink>
             {page.next_lesson ? (
               <button
                 type="button"
-                class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
+                class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
                 onClick$={() => goToNextLesson(page.next_lesson!.id_leccion)}
               >
-                <LuSkipForward class="h-4 w-4" />
+                <LuSkipForward class="h-3.5 w-3.5" />
                 Siguiente: {page.next_lesson.titulo}
               </button>
             ) : null}
             <NavLink
               href={routes.estudiante.campus}
-              class="rounded-xl border border-emerald-300 bg-white px-5 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+              class="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-800"
             >
-              Ir al campus
+              Campus
             </NavLink>
           </div>
         </div>

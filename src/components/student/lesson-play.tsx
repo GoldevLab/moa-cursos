@@ -5,7 +5,6 @@ import {
   LuCircle,
   LuLock,
   LuSparkles,
-  LuStar,
   LuVolume2,
   LuZap,
 } from "@qwikest/icons/lucide";
@@ -133,75 +132,55 @@ export const LessonGameHeader = component$(
     score: number;
     esPerfecta: boolean;
     completada: boolean;
+    reviewMode?: boolean;
   }) => {
     const pct = Math.min(
       100,
       Math.round((props.score / MAX_POINTS_PER_LESSON) * 100),
     );
-    const stars =
-      props.score >= MAX_POINTS_PER_LESSON
-        ? 3
-        : props.score >= 75
-          ? 2
-          : props.score >= 25
-            ? 1
-            : 0;
 
     return (
-      <section class="moa-lesson-glow relative overflow-hidden rounded-3xl border border-indigo-100/80 bg-white/95 p-6 backdrop-blur-sm sm:p-8">
-        <LessonArenaDecor />
-        <div class="relative z-10 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold uppercase tracking-wide text-indigo-600">
-              {props.competencia}
+      <section class="rounded-2xl border border-indigo-100/80 bg-white/95 p-3 shadow-sm backdrop-blur-sm sm:p-4">
+        <div class="flex items-start justify-between gap-2">
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-[11px] font-bold uppercase tracking-wide text-indigo-600">
+              {props.competencia} · L{props.orden}
             </p>
-            <h1 class="mt-1 text-3xl font-black text-slate-900">{props.titulo}</h1>
-            <p class="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
-              <span class="rounded-full bg-indigo-50 px-2.5 py-0.5 font-semibold text-indigo-700">
-                Lección {props.orden}
-              </span>
-              <span>3 misiones · hasta {MAX_POINTS_PER_LESSON} XP</span>
-            </p>
+            <h1 class="truncate text-lg font-black text-slate-900 sm:text-xl">
+              {props.titulo}
+            </h1>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="flex shrink-0 flex-wrap items-center justify-end gap-1">
             {props.esPerfecta ? (
-              <span class="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800 ring-2 ring-amber-200">
-                <LuSparkles class="h-3.5 w-3.5" />
+              <span class="inline-flex items-center gap-0.5 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">
+                <LuSparkles class="h-3 w-3" />
                 PERFECTO
               </span>
             ) : null}
             {props.completada ? (
-              <span class="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-xs font-black text-emerald-700">
-                <LuCheck class="h-3.5 w-3.5" />
-                Completada
+              <span class="inline-flex items-center gap-0.5 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black text-emerald-700">
+                <LuCheck class="h-3 w-3" />
+                OK
               </span>
             ) : null}
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black tabular-nums text-slate-800">
+              {props.score}/{MAX_POINTS_PER_LESSON} XP
+            </span>
           </div>
         </div>
 
-        <div class="relative z-10 mt-6">
-          <div class="mb-2 flex items-center justify-between text-sm">
-            <span class="font-bold text-slate-700">Tu energía MOA</span>
-            <span class="flex items-center gap-2 font-black text-slate-900">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <LuStar
-                  key={i}
-                  class={[
-                    "h-4 w-4",
-                    i < stars ? "fill-amber-400 text-amber-400" : "text-slate-300",
-                  ].join(" ")}
-                />
-              ))}
-              <span>{props.score}/{MAX_POINTS_PER_LESSON} XP</span>
-            </span>
-          </div>
-          <div class="moa-xp-bar h-4 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/80">
-            <div
-              class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 transition-all duration-700 ease-out"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
+        <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+          <div
+            class="h-full rounded-full bg-gradient-to-r from-indigo-500 via-violet-500 to-fuchsia-500 transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
         </div>
+
+        {props.reviewMode ? (
+          <p class="mt-2 text-[11px] font-semibold leading-snug text-sky-800">
+            🎮 Repaso libre — al terminar Uso puedes ir a la siguiente lección.
+          </p>
+        ) : null}
       </section>
     );
   },
@@ -238,8 +217,8 @@ export const LessonGameStepper = component$(
     };
 
     return (
-      <div class="grid gap-3 sm:grid-cols-3">
-        {segments.map((key, index) => {
+      <div class="grid grid-cols-3 gap-1.5 sm:gap-2">
+        {segments.map((key) => {
           const theme = SEGMENT_THEME[key];
           const mascot = SEGMENT_MASCOT[key];
           const isActive = props.current === key;
@@ -253,45 +232,30 @@ export const LessonGameStepper = component$(
               disabled={!isUnlocked}
               onClick$={() => props.onSelect$(key)}
               class={[
-                "relative overflow-hidden rounded-2xl border-2 p-4 text-left transition-all duration-300",
+                "relative overflow-hidden rounded-xl border px-2 py-2 text-center transition-all sm:px-3 sm:py-2.5",
                 isActive
-                  ? `border-transparent bg-gradient-to-br ${theme.gradient} text-white shadow-lg ${theme.glow} scale-[1.02]`
+                  ? `border-transparent bg-gradient-to-br ${theme.gradient} text-white shadow-md ${theme.glow}`
                   : isUnlocked
-                    ? "border-slate-200 bg-white text-slate-800 hover:-translate-y-1 hover:shadow-lg"
+                    ? "border-slate-200 bg-white text-slate-800 hover:border-indigo-200"
                     : "cursor-not-allowed border-slate-100 bg-slate-50 text-slate-400",
               ].join(" ")}
             >
-              {isActive ? (
-                <div class="absolute inset-0 bg-white/10" aria-hidden="true" />
-              ) : null}
-              <div class="relative flex items-center justify-between gap-2">
-                <span
-                  class={[
-                    "flex h-9 w-9 items-center justify-center rounded-xl text-lg",
-                    isActive ? "bg-white/20" : isDone ? "bg-emerald-100" : "bg-slate-100",
-                  ].join(" ")}
-                >
-                  {isDone ? <LuCheck class="h-4 w-4 text-emerald-600" /> : mascot.emoji}
+              <div class="flex items-center justify-center gap-1.5">
+                <span class="text-base leading-none sm:text-lg">
+                  {isDone ? "✓" : mascot.emoji}
                 </span>
-                {!isUnlocked ? <LuLock class="h-4 w-4 opacity-60" /> : null}
+                {!isUnlocked ? <LuLock class="h-3 w-3 opacity-60" /> : null}
               </div>
-              <p class="relative mt-3 text-base font-black">{SEGMENT_LABELS[key]}</p>
-              <p
-                class={[
-                  "relative mt-1 text-xs font-semibold",
-                  isActive ? "text-white/85" : "text-slate-500",
-                ].join(" ")}
-              >
-                {SEGMENT_POINTS[key]} XP
-                {!isUnlocked ? " · bloqueado" : isDone ? " · ¡listo!" : ""}
+              <p class="mt-1 truncate text-[11px] font-black leading-tight sm:text-xs">
+                {SEGMENT_LABELS[key]}
               </p>
               <p
                 class={[
-                  "relative mt-1 hidden text-[11px] sm:block",
-                  isActive ? "text-white/75" : "text-slate-400",
+                  "text-[10px] font-semibold leading-tight",
+                  isActive ? "text-white/85" : "text-slate-500",
                 ].join(" ")}
               >
-                Misión {index + 1}
+                {SEGMENT_POINTS[key]} XP{isDone ? " ✓" : ""}
               </p>
             </button>
           );
@@ -336,26 +300,20 @@ export const LessonSegmentIntro = component$(
 
 export const LessonSummaryCard = component$(
   (props: { summary: string; englishTerms?: string[] }) => (
-    <div class="relative overflow-hidden rounded-2xl border border-sky-200/80 bg-gradient-to-br from-sky-50 via-white to-cyan-50 p-5">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <p class="text-xs font-black uppercase tracking-widest text-sky-600">
-          Misión del día
-        </p>
-        <button
-          type="button"
-          class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-200 bg-white px-2.5 py-1.5 text-xs font-bold text-sky-700 transition hover:bg-sky-50"
-          aria-label="Escuchar misión"
-          onClick$={() =>
-            void speakLessonSummary(props.summary, props.englishTerms ?? [])
-          }
-        >
-          <LuVolume2 class="h-3.5 w-3.5" />
-          Escuchar
-        </button>
-      </div>
-      <p class="mt-2 text-lg font-medium leading-relaxed text-slate-700">
+    <div class="mb-3 flex items-start gap-2 rounded-xl border border-sky-100 bg-sky-50/80 px-3 py-2">
+      <p class="min-w-0 flex-1 text-xs font-medium leading-snug text-slate-700 line-clamp-2">
         {props.summary}
       </p>
+      <button
+        type="button"
+        class="inline-flex shrink-0 items-center gap-1 rounded-lg border border-sky-200 bg-white px-2 py-1 text-[11px] font-bold text-sky-700 hover:bg-sky-50"
+        aria-label="Escuchar misión"
+        onClick$={() =>
+          void speakLessonSummary(props.summary, props.englishTerms ?? [])
+        }
+      >
+        <LuVolume2 class="h-3.5 w-3.5" />
+      </button>
     </div>
   ),
 );
