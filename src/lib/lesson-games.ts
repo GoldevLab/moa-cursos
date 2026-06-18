@@ -1,5 +1,5 @@
 import { SEGMENT_POINTS, type LessonSegment } from "./constants";
-import { getOptionEmoji } from "./lesson-emojis";
+import { getDistinctOptionEmojisForChoices, getOptionEmoji } from "./lesson-emojis";
 import {
   COMPETENCY_THEMES,
   getLessonPlan,
@@ -326,6 +326,13 @@ export const buildPictureChoiceRound = (
     },
   ];
 
+  const distinctEmojis = getDistinctOptionEmojisForChoices(
+    rawOptions.map((option) => option.term),
+  );
+  for (let i = 0; i < rawOptions.length; i++) {
+    rawOptions[i].emoji = distinctEmojis[i];
+  }
+
   const options = fisherYatesShuffle(rawOptions, seed);
   const english = cap(focus.term);
   return {
@@ -393,6 +400,12 @@ export const buildUsePictureRound = (
       term: cap(distractor.term),
     },
   ];
+  const distinctEmojis = getDistinctOptionEmojisForChoices(
+    rawOptions.map((option) => option.term),
+  );
+  for (let i = 0; i < rawOptions.length; i++) {
+    rawOptions[i].emoji = distinctEmojis[i];
+  }
   const options = fisherYatesShuffle(rawOptions, seed);
   return {
     prompt: "Elige la palabra correcta",

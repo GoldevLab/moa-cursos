@@ -2,6 +2,7 @@ import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
 import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { GameSubmission, PictureChoiceOption } from "~/lib/lesson-games";
 import { fisherYatesShuffle } from "~/lib/lesson-games";
+import { VocabPictureIcon } from "./vocab-picture-icon";
 import { speakWord } from "~/lib/lesson-sounds";
 
 export const PictureChoiceGame = component$(
@@ -99,7 +100,7 @@ export const PictureChoiceGame = component$(
                     : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/50",
                 ].join(" ")}
               >
-                <span class="text-6xl leading-none">{opt.emoji}</span>
+                <VocabPictureIcon term={opt.term} emoji={opt.emoji} />
                 {props.showTermLabels ? (
                   <span class="mt-2 text-base font-black text-slate-800">
                     {opt.term}

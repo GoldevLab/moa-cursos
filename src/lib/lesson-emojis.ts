@@ -174,6 +174,19 @@ const TERM_EMOJI_ALTS: Record<string, string[]> = {
   lavar: ["🫧", "🧼"],
   cook: ["👨‍🍳", "🍳"],
   cocinar: ["👨‍🍳", "🍳"],
+  board: ["🖍️", "📋", "🏫"],
+  pizarra: ["🖍️", "📋", "🏫"],
+  library: ["🏛️", "📚", "📖"],
+  biblioteca: ["📚", "🏛️", "📖"],
+  desk: ["🗄️", "🪑", "🖥️"],
+  escritorio: ["🗄️", "🪑", "🖥️"],
+  chair: ["🪑", "💺"],
+  silla: ["🪑", "💺"],
+  table: ["🍽️", "🔲", "🪑"],
+  mesa: ["🍽️", "🔲", "🪑"],
+  paper: ["📄", "📝", "📋"],
+  pencil: ["✏️", "🖊️", "✍️"],
+  pen: ["🖊️", "✏️", "✍️"],
 };
 
 const FALLBACK_EMOJI_POOL = [
