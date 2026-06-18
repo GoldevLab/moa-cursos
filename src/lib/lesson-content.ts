@@ -99,13 +99,14 @@ const VERB_TERMS = new Set([
   "bake",
   "sweep",
   "wipe",
-  "knock",
+  "clap",
   "lock",
   "tidy",
   "fold",
   "drive",
   "ride",
   "stop",
+  "honk",
   "park",
   "grow",
   "run",
@@ -127,7 +128,6 @@ const VERB_TERMS = new Set([
   "sleep",
   "wake",
   "shout",
-  "fit",
 ]);
 
 const GREETING_ONLY = new Set([
@@ -138,7 +138,6 @@ const GREETING_ONLY = new Set([
   "sorry",
   "welcome",
   "how",
-  "glad",
   "excuse",
   "sure",
   "see you",
@@ -220,7 +219,7 @@ const PLURAL_NOUNS = new Set([
 const USE_SENTENCE_OVERRIDE: Record<string, readonly [string, string, string]> = {
   meet: ["Nice to ___ you.", "Happy to ___ you.", "I want to ___ you."],
   how: ["___ are you?", "___ old are you?", "___ is the weather?"],
-  glad: ["I am ___ to see you.", "Are you ___ ?", "She is ___ today."],
+  gift: ["This is a ___ for you.", "I got a ___ today.", "What a nice ___ !"],
   excuse: ["___ me!", "___ me, teacher.", "___ me, please."],
   sure: ["___ , I will help.", "Are you ___ ?", "___ thing!"],
   name: ["My ___ is Ana.", "What is your ___ ?", "Write your ___ here."],
@@ -241,7 +240,9 @@ const USE_SENTENCE_OVERRIDE: Record<string, readonly [string, string, string]> =
   weekday: ["Every ___ I study.", "It is a busy ___ .", "Today is a ___ ."],
   weekend: ["I play on the ___ .", "No school on the ___ !", "Happy ___ !"],
   parents: ["I love my ___ .", "My ___ are kind.", "I live with my ___ ."],
-  fit: ["These shoes ___ me.", "Does it ___ ?", "The coat does not ___ ."],
+  tag: ["Read the ___ on the shirt.", "Check the size ___ .", "The ___ says medium."],
+  clap: ["___ your hands!", "Let's ___ together.", "___ once, please."],
+  honk: ["Do not ___ the horn.", "They ___ at the car.", "I ___ once."],
   round: ["The ball is ___ .", "It is ___ like a circle.", "Draw a ___ shape."],
   square: ["It is a ___ shape.", "Draw a ___ .", "The box is ___ ."],
 };

@@ -1,5 +1,5 @@
 import { SEGMENT_POINTS, type LessonSegment } from "./constants";
-import { getDistinctOptionEmojisForChoices, getOptionEmoji } from "./lesson-emojis";
+import { applyDistinctOptionEmojis, getOptionEmoji } from "./lesson-emojis";
 import {
   COMPETENCY_THEMES,
   getLessonPlan,
@@ -282,21 +282,25 @@ const pickThemeDistractor = (
 export const buildMemoryPairs = (
   vocabulary: { term: string; meaning: string }[],
 ): MemoryPair[] =>
-  vocabulary.map((item, index) => ({
-    id: `m-${index}`,
-    emoji: getOptionEmoji(item.term),
-    term: cap(item.term),
-  }));
+  applyDistinctOptionEmojis(
+    vocabulary.map((item, index) => ({
+      id: `m-${index}`,
+      emoji: getOptionEmoji(item.term),
+      term: cap(item.term),
+    })),
+  );
 
 export const buildMatchPairs = (
   vocabulary: { term: string; meaning: string }[],
 ): MatchPairItem[] =>
-  vocabulary.map((item, index) => ({
-    id: `p-${index}`,
-    emoji: getOptionEmoji(item.term),
-    term: cap(item.term),
-    meaning: item.meaning,
-  }));
+  applyDistinctOptionEmojis(
+    vocabulary.map((item, index) => ({
+      id: `p-${index}`,
+      emoji: getOptionEmoji(item.term),
+      term: cap(item.term),
+      meaning: item.meaning,
+    })),
+  );
 
 export const buildPictureChoiceRound = (
   vocabulary: VocabItem[],
@@ -326,14 +330,9 @@ export const buildPictureChoiceRound = (
     },
   ];
 
-  const distinctEmojis = getDistinctOptionEmojisForChoices(
-    rawOptions.map((option) => option.term),
+  const options = applyDistinctOptionEmojis(
+    fisherYatesShuffle(rawOptions, seed),
   );
-  for (let i = 0; i < rawOptions.length; i++) {
-    rawOptions[i].emoji = distinctEmojis[i];
-  }
-
-  const options = fisherYatesShuffle(rawOptions, seed);
   const english = cap(focus.term);
   return {
     prompt: "Elige la imagen correcta",
@@ -400,13 +399,9 @@ export const buildUsePictureRound = (
       term: cap(distractor.term),
     },
   ];
-  const distinctEmojis = getDistinctOptionEmojisForChoices(
-    rawOptions.map((option) => option.term),
+  const options = applyDistinctOptionEmojis(
+    fisherYatesShuffle(rawOptions, seed),
   );
-  for (let i = 0; i < rawOptions.length; i++) {
-    rawOptions[i].emoji = distinctEmojis[i];
-  }
-  const options = fisherYatesShuffle(rawOptions, seed);
   return {
     prompt: "Elige la palabra correcta",
     sentence: formatSentenceOrderTemplate(sentenceWithBlank),

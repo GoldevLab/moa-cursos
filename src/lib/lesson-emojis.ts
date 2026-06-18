@@ -174,19 +174,54 @@ const TERM_EMOJI_ALTS: Record<string, string[]> = {
   lavar: ["🫧", "🧼"],
   cook: ["👨‍🍳", "🍳"],
   cocinar: ["👨‍🍳", "🍳"],
-  board: ["🖍️", "📋", "🏫"],
-  pizarra: ["🖍️", "📋", "🏫"],
+  book: ["📚", "📖", "📕"],
+  libro: ["📚", "📖", "📕"],
+  study: ["📚", "🎓", "✏️"],
+  estudiar: ["📚", "🎓", "✏️"],
   library: ["🏛️", "📚", "📖"],
-  biblioteca: ["📚", "🏛️", "📖"],
-  desk: ["🗄️", "🪑", "🖥️"],
-  escritorio: ["🗄️", "🪑", "🖥️"],
+  biblioteca: ["🏛️", "📚", "📖"],
+  ruler: ["📏", "📐", "✏️"],
+  regla: ["📏", "📐", "✏️"],
+  bell: ["🔔", "🔕", "🛎️"],
+  timbre: ["🔔", "🔕", "🛎️"],
   chair: ["🪑", "💺"],
   silla: ["🪑", "💺"],
+  desk: ["🗄️", "🖥️", "🪑"],
+  escritorio: ["🗄️", "🖥️", "🪑"],
   table: ["🍽️", "🔲", "🪑"],
   mesa: ["🍽️", "🔲", "🪑"],
-  paper: ["📄", "📝", "📋"],
-  pencil: ["✏️", "🖊️", "✍️"],
-  pen: ["🖊️", "✏️", "✍️"],
+  pencil: ["✏️", "✒️", "🖊️"],
+  lápiz: ["✏️", "✒️", "🖊️"],
+  pen: ["🖊️", "✒️", "✏️"],
+  pluma: ["🖊️", "✒️", "✏️"],
+  paper: ["📄", "📃", "📝"],
+  papel: ["📄", "📃", "📝"],
+  homework: ["📝", "📋", "📓"],
+  tarea: ["📝", "📋", "📓"],
+  test: ["📝", "✅", "📄"],
+  examen: ["📝", "✅", "📄"],
+  notebook: ["📓", "📔", "📒"],
+  cuaderno: ["📓", "📔", "📒"],
+  gift: ["🎁", "🎀", "💝"],
+  regalo: ["🎁", "🎀", "💝"],
+  tag: ["🏷️", "📌", "🔖"],
+  etiqueta: ["🏷️", "📌", "🔖"],
+  honk: ["📯", "🚗", "🔊"],
+  bocina: ["📯", "🚗", "🔊"],
+  clap: ["👏", "🙌", "✋"],
+  aplauso: ["👏", "🙌", "✋"],
+  glad: ["😊", "😁", "🙂"],
+  fine: ["👌", "👍", "✅"],
+  nice: ["😊", "🌟", "💛"],
+  face: ["😊", "🙂", "😀"],
+  happy: ["😊", "😄", "🙂"],
+  daughter: ["👧", "👩", "🧒"],
+  sister: ["👧", "👩", "🧒"],
+  home: ["🏠", "🏡", "🏘️"],
+  house: ["🏠", "🏡", "🏘️"],
+  dinner: ["🍽️", "🍲", "🥘"],
+  food: ["🍽️", "🍲", "🥗"],
+  plate: ["🍽️", "🥘", "🍛"],
 };
 
 const FALLBACK_EMOJI_POOL = [
@@ -223,6 +258,14 @@ export const getDistinctOptionEmojisForChoices = (
     used.add(emoji);
     return emoji;
   });
+};
+
+/** Asigna emojis únicos a cada opción de un juego (imagen, memoria, parejas). */
+export const applyDistinctOptionEmojis = <T extends { term: string; emoji: string }>(
+  items: T[],
+): T[] => {
+  const emojis = getDistinctOptionEmojisForChoices(items.map((item) => item.term));
+  return items.map((item, index) => ({ ...item, emoji: emojis[index] }));
 };
 
 export const SEGMENT_MASCOT: Record<
