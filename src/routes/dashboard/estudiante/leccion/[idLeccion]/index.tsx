@@ -558,14 +558,6 @@ export default component$(() => {
     missionOverlay.value = null;
   });
 
-  const segmentPerfect =
-    segment.value === "presentation"
-      ? progress.presentation_perfect
-      : segment.value === "practice"
-        ? progress.practice_perfect
-        : progress.use_perfect;
-  const segmentLocked = segmentPerfect && !isReviewMode;
-
   const dismissMissionOverlay = $(() => {
     const overlay = missionOverlay.value;
     if (!overlay) return;
@@ -628,7 +620,7 @@ export default component$(() => {
             segment={segment.value}
             gameType={segmentGameType}
             gameSeed={segmentGameSeed}
-            disabled={(segmentLocked && !isReviewMode) || saving.value}
+            disabled={saving.value}
             saving={saving.value}
             pictureRound={gameRounds.pictureRound}
             meaningRound={gameRounds.meaningRound}
