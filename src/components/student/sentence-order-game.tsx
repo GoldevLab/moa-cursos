@@ -1,7 +1,7 @@
 import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
 import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { GameSubmission, SentenceOrderRound } from "~/lib/lesson-games";
-import { speakWord } from "~/lib/lesson-sounds";
+import { speakLessonText, speakWord } from "~/lib/lesson-sounds";
 
 export const SentenceOrderGame = component$(
   (props: {
@@ -91,16 +91,24 @@ export const SentenceOrderGame = component$(
                   </div>
                 ) : null}
                 {props.round.prompt ? (
-                  <p
+                  <div
                     class={[
-                      "text-sm font-bold text-amber-800",
+                      "flex items-center gap-2",
                       props.round.sentenceWithBlank || props.round.hintMeaning
                         ? "mt-2"
                         : "",
                     ].join(" ")}
                   >
-                    {props.round.prompt}
-                  </p>
+                    <p class="text-sm font-bold text-amber-800">{props.round.prompt}</p>
+                    <button
+                      type="button"
+                      class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-100"
+                      aria-label={`Listen: ${props.round.prompt}`}
+                      onClick$={() => void speakLessonText(props.round.prompt, "use")}
+                    >
+                      <LuVolume2 class="h-4 w-4" />
+                    </button>
+                  </div>
                 ) : null}
               </div>
             </div>

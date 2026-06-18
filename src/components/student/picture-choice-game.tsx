@@ -2,7 +2,7 @@ import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
 import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { GameSubmission, PictureChoiceOption } from "~/lib/lesson-games";
 import { fisherYatesShuffle } from "~/lib/lesson-games";
-import { speakWord } from "~/lib/lesson-sounds";
+import { speakLessonText } from "~/lib/lesson-sounds";
 
 export const PictureChoiceGame = component$(
   (props: {
@@ -53,12 +53,17 @@ export const PictureChoiceGame = component$(
               <p class="text-3xl font-black tracking-wide text-slate-900">
                 {props.englishTerm}
               </p>
-              {props.spanishMeaning ? (
+              {props.englishTerm && !props.showTermLabels ? (
                 <button
                   type="button"
                   class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-700 transition hover:bg-violet-100"
-                  aria-label={`Listen to ${props.spanishMeaning}`}
-                  onClick$={() => void speakWord(props.spanishMeaning!, "es")}
+                  aria-label={`Listen: ${props.prompt} of ${props.englishTerm}`}
+                  onClick$={() =>
+                    void speakLessonText(
+                      `Choose the correct image of "${props.englishTerm}"`,
+                      "presentation",
+                    )
+                  }
                 >
                   <LuVolume2 class="h-4 w-4" />
                 </button>

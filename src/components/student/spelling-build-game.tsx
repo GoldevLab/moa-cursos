@@ -1,7 +1,7 @@
 import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
 import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { GameSubmission, SpellingRound } from "~/lib/lesson-games";
-import { speakWord } from "~/lib/lesson-sounds";
+import { speakLessonText } from "~/lib/lesson-sounds";
 
 export const SpellingBuildGame = component$(
   (props: {
@@ -75,16 +75,19 @@ export const SpellingBuildGame = component$(
             <p class="text-lg font-black leading-snug text-amber-950 sm:text-xl">
               {props.round.prompt}
             </p>
-            {!props.round.suppressSpanishHint && !props.round.contextHint ? (
-              <button
-                type="button"
-                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-100"
-                aria-label={`Escuchar «${props.round.meaning}»`}
-                onClick$={() => void speakWord(props.round.meaning, "es")}
-              >
-                <LuVolume2 class="h-4 w-4" />
-              </button>
-            ) : null}
+            <button
+              type="button"
+              class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-100"
+              aria-label={`Listen: ${props.round.prompt}`}
+              onClick$={() =>
+                void speakLessonText(
+                  props.round.prompt,
+                  props.round.contextHint ? "use" : "practice",
+                )
+              }
+            >
+              <LuVolume2 class="h-4 w-4" />
+            </button>
           </div>
 
           <p class="mt-2 text-sm font-semibold text-amber-800/90">
@@ -119,7 +122,7 @@ export const SpellingBuildGame = component$(
 
         <div>
           <p class="mb-2 text-center text-xs font-bold uppercase tracking-wide text-slate-500">
-            Toca una letra
+            Tap a letter
           </p>
           <div class="flex flex-wrap justify-center gap-1.5">
             {available.value.map((letter, index) => (
@@ -145,7 +148,7 @@ export const SpellingBuildGame = component$(
             onClick$={removeLast}
             class="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40"
           >
-            Borrar última
+            Delete last
           </button>
           <p class="ml-auto text-xs font-mono font-bold text-slate-400">
             {formatTime(elapsed.value)}

@@ -153,12 +153,24 @@ const INSTRUCTION_SPEECH_RULES: Array<{
     speech: () => "Elige la imagen correcta",
   },
   {
+    match: /^Choose the correct image of "(.+)"$/,
+    speech: (m) => `Elige la imagen correcta de "${m[1]}"`,
+  },
+  {
     match: /^Choose the correct meaning in Spanish$/,
     speech: () => "Elige su significado en español",
   },
   {
+    match: /^Choose the correct meaning in Spanish of "(.+)"$/,
+    speech: (m) => `Elige el significado correcto en español de "${m[1]}"`,
+  },
+  {
     match: /^Choose the correct word$/,
     speech: () => "Elige la palabra correcta",
+  },
+  {
+    match: /^Choose the correct word for «(.+)»$/,
+    speech: (m) => `Elige la palabra correcta para «${m[1]}»`,
   },
   {
     match: /^Complete the word in the sentence$/,
@@ -215,6 +227,10 @@ export const instructionSpeechText = (displayText: string): string => {
   }
   return trimmed;
 };
+
+/** Returns true when display text has a Spanish speech mapping. */
+export const hasInstructionSpeechMapping = (displayText: string): boolean =>
+  instructionSpeechText(displayText.trim()) !== displayText.trim();
 
 const ENGLISH_HINT =
   /\b(I|you|he|she|we|they|my|your|the|a|an|is|are|am|do|don't|can|will|have|how|what|see|every|day|today|this|love|read|drink|feel|go|school|by|count|like|in|class|carefully|open|shining|morning|afternoon|pet|favorite|color|hello|goodbye|thank|please|choose|select|which|complete|write|put|order|tap|match|flip|pick|find|build|guess|sentence|word|image|meaning|english|spanish)\b/i;

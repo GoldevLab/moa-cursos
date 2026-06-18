@@ -2,7 +2,7 @@ import { component$ } from "@builder.io/qwik";
 import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { LessonSegment } from "~/lib/constants";
 import type { LessonGameType, GameSubmission } from "~/lib/lesson-games";
-import { speakWord } from "~/lib/lesson-sounds";
+import { speakLessonText, speakWord } from "~/lib/lesson-sounds";
 import {
   buildMatchPairs,
   buildMeaningChoiceRound,
@@ -109,7 +109,10 @@ export const LessonSegmentGameArena = component$(
                     class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-100"
                     aria-label={`Escuchar «${props.pictureRound.hintMeaning}»`}
                     onClick$={() =>
-                      void speakWord(props.pictureRound.hintMeaning!, "es")
+                      void speakLessonText(
+                        `Choose the correct word for «${props.pictureRound.hintMeaning}»`,
+                        "use",
+                      )
                     }
                   >
                     <LuVolume2 class="h-4 w-4" />
