@@ -71,25 +71,21 @@ export const SpellingBuildGame = component$(
             </p>
           ) : null}
 
-          <p class="mt-3 text-lg font-black leading-snug text-amber-950 sm:text-xl">
-            {props.round.prompt}
-          </p>
-
-          {!props.round.suppressSpanishHint && !props.round.contextHint ? (
-            <div class="mt-2 flex items-center justify-center gap-2">
-              <p class="text-base font-bold text-amber-800">
-                En español: «{props.round.meaning}»
-              </p>
+          <div class="mt-3 flex items-center justify-center gap-2">
+            <p class="text-lg font-black leading-snug text-amber-950 sm:text-xl">
+              {props.round.prompt}
+            </p>
+            {!props.round.suppressSpanishHint && !props.round.contextHint ? (
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-100"
+                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-100"
                 aria-label={`Escuchar «${props.round.meaning}»`}
                 onClick$={() => void speakWord(props.round.meaning, "es")}
               >
                 <LuVolume2 class="h-4 w-4" />
               </button>
-            </div>
-          ) : null}
+            ) : null}
+          </div>
 
           <p class="mt-2 text-sm font-semibold text-amber-800/90">
             {props.round.instruction}

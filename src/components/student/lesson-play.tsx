@@ -594,11 +594,15 @@ export const LessonVocabReveal = component$(
   ),
 );
 
-/** Centrado real en viewport (móvil incluido); z por encima del nav inferior. */
-const LESSON_MODAL_BACKDROP =
-  "fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))] backdrop-blur-sm";
+/** Capa fija + contenedor interno: centra en viewport en desktop y móvil. */
+const LESSON_MODAL_SHELL =
+  "fixed inset-0 z-[100] overflow-y-auto overscroll-contain backdrop-blur-sm";
 
-const LESSON_MODAL_PANEL = "relative my-auto w-full max-w-lg shrink-0";
+const LESSON_MODAL_CENTER =
+  "flex min-h-[100dvh] w-full items-center justify-center p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))]";
+
+const lessonModalPanel = (maxWidth = "max-w-lg") =>
+  `relative w-full ${maxWidth} shrink-0`;
 
 export const LessonMissionCompleteOverlay = component$(
   (props: {
@@ -619,17 +623,18 @@ export const LessonMissionCompleteOverlay = component$(
 
     return (
       <div
-        class={`${LESSON_MODAL_BACKDROP} bg-slate-900/50`}
+        class={`${LESSON_MODAL_SHELL} bg-slate-900/50`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="mission-complete-title"
       >
-        <div
-          class={[
-            LESSON_MODAL_PANEL,
-            "overflow-hidden rounded-3xl border-2 border-white/20 bg-white p-6 text-center shadow-2xl moa-pop sm:p-8",
-          ].join(" ")}
-        >
+        <div class={LESSON_MODAL_CENTER}>
+          <div
+            class={[
+              lessonModalPanel("max-w-md"),
+              "overflow-hidden rounded-3xl border-2 border-white/20 bg-white p-6 text-center shadow-2xl moa-pop sm:p-8",
+            ].join(" ")}
+          >
           <div class="pointer-events-none absolute -right-6 -top-6 text-7xl opacity-20">
             {mascot.emoji}
           </div>
@@ -678,6 +683,7 @@ export const LessonMissionCompleteOverlay = component$(
               {props.nextLabel ?? defaultNextLabel}
             </button>
           )}
+          </div>
         </div>
       </div>
     );
@@ -695,65 +701,67 @@ export const LessonVictoryModal = component$(
     onNext$: () => void;
   }) => (
     <div
-      class={`${LESSON_MODAL_BACKDROP} bg-indigo-900/60`}
+      class={`${LESSON_MODAL_SHELL} bg-indigo-900/60`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="victory-title"
     >
-      <div
-        class={[
-          LESSON_MODAL_PANEL,
-          "overflow-hidden rounded-3xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-6 shadow-2xl moa-pop sm:p-8",
-        ].join(" ")}
-      >
-        <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          {["⭐", "🎉", "🏆", "✨", "🌟"].map((e, i) => (
-            <span
-              key={i}
-              class="absolute text-2xl opacity-30"
-              style={{ left: `${10 + i * 18}%`, top: `${8 + (i % 2) * 12}%` }}
-            >
-              {e}
-            </span>
-          ))}
-        </div>
-        <div class="relative text-center">
-          <p class="text-6xl">🏆</p>
-          <h2 id="victory-title" class="mt-3 text-3xl font-black text-emerald-900">
-            ¡Lección completada!
-          </h2>
-          <p class="mt-2 text-lg font-bold text-slate-800">{props.titulo}</p>
-          <p class="mt-3 text-slate-600">
-            Ganaste{" "}
-            <span class="font-black text-indigo-700">{props.score} XP</span>
-            {props.esPerfecta ? (
-              <span class="mt-2 block font-black text-amber-600">
-                ⭐ ¡Puntaje perfecto!
-              </span>
-            ) : null}
-          </p>
-          <div class="mt-6 flex flex-col gap-3">
-            {props.nextLesson ? (
-              <button
-                type="button"
-                onClick$={props.onNext$}
-                class="w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4 text-lg font-black text-white shadow-lg"
+      <div class={LESSON_MODAL_CENTER}>
+        <div
+          class={[
+            lessonModalPanel("max-w-lg"),
+            "overflow-hidden rounded-3xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-6 shadow-2xl moa-pop sm:p-8",
+          ].join(" ")}
+        >
+          <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+            {["⭐", "🎉", "🏆", "✨", "🌟"].map((e, i) => (
+              <span
+                key={i}
+                class="absolute text-2xl opacity-30"
+                style={{ left: `${10 + i * 18}%`, top: `${8 + (i % 2) * 12}%` }}
               >
-                Siguiente: {props.nextLesson.titulo}
-              </button>
-            ) : null}
-            <NavLink
-              href={props.competenciaHref}
-              class="block w-full rounded-2xl border-2 border-emerald-300 bg-white px-6 py-3 text-center text-base font-bold text-emerald-800"
-            >
-              Ver más lecciones
-            </NavLink>
-            <NavLink
-              href={props.campusHref}
-              class="block w-full rounded-2xl px-6 py-3 text-center text-sm font-semibold text-slate-600 hover:text-slate-900"
-            >
-              Ir al campus
-            </NavLink>
+                {e}
+              </span>
+            ))}
+          </div>
+          <div class="relative text-center">
+            <p class="text-6xl">🏆</p>
+            <h2 id="victory-title" class="mt-3 text-3xl font-black text-emerald-900">
+              ¡Lección completada!
+            </h2>
+            <p class="mt-2 text-lg font-bold text-slate-800">{props.titulo}</p>
+            <p class="mt-3 text-slate-600">
+              Ganaste{" "}
+              <span class="font-black text-indigo-700">{props.score} XP</span>
+              {props.esPerfecta ? (
+                <span class="mt-2 block font-black text-amber-600">
+                  ⭐ ¡Puntaje perfecto!
+                </span>
+              ) : null}
+            </p>
+            <div class="mt-6 flex flex-col gap-3">
+              {props.nextLesson ? (
+                <button
+                  type="button"
+                  onClick$={props.onNext$}
+                  class="w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4 text-lg font-black text-white shadow-lg"
+                >
+                  Siguiente: {props.nextLesson.titulo}
+                </button>
+              ) : null}
+              <NavLink
+                href={props.competenciaHref}
+                class="block w-full rounded-2xl border-2 border-emerald-300 bg-white px-6 py-3 text-center text-base font-bold text-emerald-800"
+              >
+                Ver más lecciones
+              </NavLink>
+              <NavLink
+                href={props.campusHref}
+                class="block w-full rounded-2xl px-6 py-3 text-center text-sm font-semibold text-slate-600 hover:text-slate-900"
+              >
+                Ir al campus
+              </NavLink>
+            </div>
           </div>
         </div>
       </div>

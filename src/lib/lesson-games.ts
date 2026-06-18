@@ -62,9 +62,41 @@ const USE_GAME_FALLBACK: Partial<Record<LessonGameType, LessonGameType>> = {
   match_pairs: "picture_choice",
 };
 
+/** Si práctica repite el juego de presentación, usa otro tipo de actividad. */
+const PRACTICE_GAME_FALLBACK: Partial<Record<LessonGameType, LessonGameType>> = {
+  spelling_build: "picture_choice",
+  memory_match: "match_pairs",
+  match_pairs: "picture_choice",
+  picture_choice: "match_pairs",
+};
+
+const PRACTICE_GAME_ALTERNATIVES: LessonGameType[] = [
+  "picture_choice",
+  "match_pairs",
+  "memory_match",
+  "spelling_build",
+];
+
+const resolvePracticeGameType = (slot: number): LessonGameType => {
+  const presentation = PRESENTATION_GAMES[slot];
+  let game = PRACTICE_GAMES[slot];
+  if (game === presentation) {
+    const preferred = PRACTICE_GAME_FALLBACK[game];
+    if (preferred && preferred !== presentation) {
+      game = preferred;
+    } else {
+      game =
+        PRACTICE_GAME_ALTERNATIVES.find((candidate) => candidate !== presentation) ??
+        game;
+    }
+  }
+  return game;
+};
+
 const resolveUseGameType = (slot: number): LessonGameType => {
   let game = USE_GAMES[slot];
-  if (game === PRACTICE_GAMES[slot]) {
+  const practice = resolvePracticeGameType(slot);
+  if (game === practice) {
     game = USE_GAME_FALLBACK[game] ?? "sentence_order";
   }
   return game;
@@ -76,7 +108,7 @@ export const getSegmentGameType = (
 ): LessonGameType => {
   const slot = slotForLesson(idLeccion);
   if (segment === "presentation") return PRESENTATION_GAMES[slot];
-  if (segment === "practice") return PRACTICE_GAMES[slot];
+  if (segment === "practice") return resolvePracticeGameType(slot);
   return resolveUseGameType(slot);
 };
 
@@ -229,15 +261,6 @@ export const buildMemoryPairs = (
     id: `m-${index}`,
     emoji: getOptionEmoji(item.term),
     term: cap(item.term),
-  }));
-
-export const buildMemoryMeaningPairs = (
-  vocabulary: { term: string; meaning: string }[],
-): MemoryPair[] =>
-  vocabulary.map((item, index) => ({
-    id: `m-${index}`,
-    emoji: getOptionEmoji(item.term),
-    term: item.meaning,
   }));
 
 export const buildMatchPairs = (
@@ -621,7 +644,7 @@ const GAME_UI_BASE: Record<
   memory_match: {
     emoji: "🧩",
     title: "¡Memoria MOA!",
-    hint: "Voltea las tarjetas y une cada pareja",
+    hint: "Voltea las tarjetas y une cada emoji con su palabra en inglés",
     badge: "Juego de memoria",
   },
   spelling_build: {
@@ -649,12 +672,6 @@ export const getSegmentGameUi = (
   gameType: LessonGameType,
 ) => {
   const base = GAME_UI_BASE[gameType];
-  if (segment === "presentation" && gameType === "memory_match") {
-    return {
-      ...base,
-      hint: "Une cada emoji con su significado en español",
-    };
-  }
   if (segment === "use" && gameType === "picture_choice") {
     return {
       ...base,

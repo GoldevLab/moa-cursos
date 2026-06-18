@@ -141,6 +141,10 @@ export const MemoryMatchGame = component$(
           </p>
         </div>
 
+        <p class="text-center text-sm font-semibold text-violet-800">
+          Une cada emoji con su palabra en inglés
+        </p>
+
         <div class="grid grid-cols-3 gap-3 sm:grid-cols-4 sm:gap-4">
           {cards.value.map((card, index) => {
             const isOpen = card.isFlipped || card.isMatched;

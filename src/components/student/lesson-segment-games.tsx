@@ -4,7 +4,6 @@ import type { LessonGameType, GameSubmission } from "~/lib/lesson-games";
 import {
   buildMatchPairs,
   buildMeaningChoiceRound,
-  buildMemoryMeaningPairs,
   buildMemoryPairs,
   buildPictureChoiceRound,
   buildSentenceOrderRound,
@@ -207,10 +206,7 @@ export const buildSegmentGameRounds = (input: {
     input.gameSeed,
   );
 
-  const memoryPairs =
-    input.segment === "presentation"
-      ? buildMemoryMeaningPairs(vocab)
-      : buildMemoryPairs(vocab);
+  const memoryPairs = buildMemoryPairs(vocab);
 
   const matchPairs = buildMatchPairs(vocab);
 

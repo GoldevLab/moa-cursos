@@ -26,7 +26,6 @@ import {
   LessonSegmentGameArena,
 } from "~/components/student/lesson-segment-games";
 import { NavLink } from "~/components/ui/nav-link";
-import { SEGMENT_LABELS } from "~/components/student/student-ui";
 import { MAX_POINTS_PER_LESSON, SEGMENT_POINTS } from "~/lib/constants";
 import type { LessonSegment } from "~/lib/constants";
 import { getCurrentUsuario } from "~/lib/auth";
@@ -402,17 +401,33 @@ export default component$(() => {
         );
 
         if (reviewMode) {
-          feedbackOk.value = perfect;
-          feedback.value = perfect
-            ? "¡Excelente! (modo repaso — no afecta tu puntaje)"
-            : reviewFeedbackMessage(submission, currentGameType);
-          celebrate.value = perfect && !victoryOpen.value;
+          const autoAdvanceSegment =
+            perfect && currentSegment !== "use"
+              ? currentSegment === "presentation"
+                ? "practice"
+                : "use"
+              : null;
+
+          if (autoAdvanceSegment) {
+            celebrate.value = false;
+            feedback.value = "";
+            feedbackOk.value = null;
+          } else {
+            feedbackOk.value = perfect;
+            feedback.value = perfect
+              ? "¡Excelente! (modo repaso — no afecta tu puntaje)"
+              : reviewFeedbackMessage(submission, currentGameType);
+            celebrate.value = perfect && !victoryOpen.value;
+          }
+
           if (perfect) playCorrectSound();
           else playWrongSound();
 
           if (perfect) {
             if (currentSegment === "use" && pageData.next_lesson) {
               celebrate.value = false;
+              feedback.value = "";
+              feedbackOk.value = null;
               playVictorySound();
               victoryOpen.value = true;
             } else if (currentSegment === "use") {
@@ -424,14 +439,9 @@ export default component$(() => {
                 review: true,
                 nextLabel: "Ver más lecciones →",
               };
-            } else {
+            } else if (autoAdvanceSegment) {
               playMissionCompleteSound();
-              const nextSegment: LessonSegment =
-                currentSegment === "presentation" ? "practice" : "use";
-              segment.value = nextSegment;
-              celebrate.value = false;
-              feedbackOk.value = true;
-              feedback.value = `¡Perfecto! Sigue en ${SEGMENT_LABELS[nextSegment]}.`;
+              segment.value = autoAdvanceSegment;
             }
           }
           return;
