@@ -1,6 +1,6 @@
 import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
 import { LuVolume2 } from "@qwikest/icons/lucide";
-import type { SpellingRound } from "~/lib/lesson-games";
+import type { GameSubmission, SpellingRound } from "~/lib/lesson-games";
 import { speakWord } from "~/lib/lesson-sounds";
 
 export const SpellingBuildGame = component$(
@@ -8,7 +8,7 @@ export const SpellingBuildGame = component$(
     round: SpellingRound;
     disabled?: boolean;
     saving?: boolean;
-    onSubmit$: (built: string) => void;
+    onSubmit$: (submission: Extract<GameSubmission, { kind: "spelling_build" }>) => void;
   }) => {
     const built = useSignal("");
     const available = useSignal<string[]>([]);
@@ -48,7 +48,7 @@ export const SpellingBuildGame = component$(
     });
 
     const submit = $(() => {
-      props.onSubmit$(built.value);
+      props.onSubmit$({ kind: "spelling_build", built: built.value });
     });
 
     const formatTime = (seconds: number) => {

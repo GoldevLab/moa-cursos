@@ -26,6 +26,7 @@ import {
   LessonSegmentGameArena,
 } from "~/components/student/lesson-segment-games";
 import { NavLink } from "~/components/ui/nav-link";
+import { SEGMENT_LABELS } from "~/components/student/student-ui";
 import { MAX_POINTS_PER_LESSON, SEGMENT_POINTS } from "~/lib/constants";
 import type { LessonSegment } from "~/lib/constants";
 import { getCurrentUsuario } from "~/lib/auth";
@@ -202,6 +203,28 @@ export const head: DocumentHead = ({ resolveValue }) => {
   return { title: `${data.lesson.titulo} | MOA` };
 };
 
+const reviewFeedbackMessage = (
+  submission: GameSubmission,
+  gameType: ReturnType<typeof getSegmentGameType>,
+): string => {
+  if (submission.kind === "match_pairs") {
+    return "Una o más parejas no coinciden. Revísalas y vuelve a intentar.";
+  }
+  if (submission.kind === "spelling_build") {
+    return "La palabra no es correcta. Revisa las letras e intenta otra vez.";
+  }
+  if (submission.kind === "sentence_order") {
+    return "El orden no es correcto. Revisa las palabras e intenta otra vez.";
+  }
+  if (submission.kind === "meaning_choice" || gameType === "meaning_choice") {
+    return "Ese no era el significado correcto. ¡Intenta otra vez!";
+  }
+  if (submission.kind === "picture_choice" || gameType === "picture_choice") {
+    return "Esa no era la opción correcta. ¡Intenta otra vez!";
+  }
+  return "Casi perfecto. ¡Inténtalo otra vez!";
+};
+
 export default component$(() => {
   const data = useLessonPage();
   const loc = useLocation();
@@ -350,63 +373,76 @@ export default component$(() => {
 
   const submitGameSegment = $(
     async (submission: GameSubmission) => {
-      primeLessonAudio();
-      const currentSegment = segment.value;
-      const currentGameType = getSegmentGameType(
-        currentSegment,
-        page.lesson.id_leccion,
-      );
-      const perfect = isGameSubmissionPerfect(
-        currentSegment,
-        currentGameType,
-        page.lesson.id_leccion,
-        submission,
-        page.content.presentation.vocabulary,
-        currentSegment === "use" ? page.use_sentence : undefined,
-      );
+      if (saving.value) return;
 
-      if (isReviewMode) {
-        feedbackOk.value = perfect;
-        feedback.value = perfect
-          ? "¡Excelente! (modo repaso — no afecta tu puntaje)"
-          : "Casi perfecto. (modo repaso)";
-        celebrate.value = perfect;
-        if (perfect) playCorrectSound();
-        else playWrongSound();
-
-        if (perfect) {
-          if (currentSegment === "use" && page.next_lesson) {
-            playVictorySound();
-            victoryOpen.value = true;
-          } else {
-            playMissionCompleteSound();
-            missionOverlay.value = {
-              segment: currentSegment,
-              xp: 0,
-              next:
-                currentSegment === "presentation"
-                  ? "practice"
-                  : currentSegment === "practice"
-                    ? "use"
-                    : null,
-              review: currentSegment === "use" && !page.next_lesson,
-              nextLabel:
-                currentSegment === "use" && !page.next_lesson
-                  ? "Ver más lecciones →"
-                  : undefined,
-            };
-          }
-        }
-        return;
-      }
+      const pageData = data.value;
+      if (!pageData || pageData.locked) return;
 
       saving.value = true;
-      feedback.value = "";
-      feedbackOk.value = null;
-      celebrate.value = false;
+      primeLessonAudio();
+
       try {
+        const currentSegment = segment.value;
+        const currentProgress = localProgress.value ?? pageData.progress;
+        const reviewMode = currentProgress.completada;
+        const vocabulary = pageData.content.presentation.vocabulary;
+        const useSentence =
+          currentSegment === "use" ? pageData.use_sentence : undefined;
+        const currentGameType = getSegmentGameType(
+          currentSegment,
+          pageData.lesson.id_leccion,
+        );
+        const perfect = isGameSubmissionPerfect(
+          currentSegment,
+          currentGameType,
+          pageData.lesson.id_leccion,
+          submission,
+          vocabulary,
+          useSentence,
+        );
+
+        if (reviewMode) {
+          feedbackOk.value = perfect;
+          feedback.value = perfect
+            ? "¡Excelente! (modo repaso — no afecta tu puntaje)"
+            : reviewFeedbackMessage(submission, currentGameType);
+          celebrate.value = perfect && !victoryOpen.value;
+          if (perfect) playCorrectSound();
+          else playWrongSound();
+
+          if (perfect) {
+            if (currentSegment === "use" && pageData.next_lesson) {
+              celebrate.value = false;
+              playVictorySound();
+              victoryOpen.value = true;
+            } else if (currentSegment === "use") {
+              playMissionCompleteSound();
+              missionOverlay.value = {
+                segment: currentSegment,
+                xp: 0,
+                next: null,
+                review: true,
+                nextLabel: "Ver más lecciones →",
+              };
+            } else {
+              playMissionCompleteSound();
+              const nextSegment: LessonSegment =
+                currentSegment === "presentation" ? "practice" : "use";
+              segment.value = nextSegment;
+              celebrate.value = false;
+              feedbackOk.value = true;
+              feedback.value = `¡Perfecto! Sigue en ${SEGMENT_LABELS[nextSegment]}.`;
+            }
+          }
+          return;
+        }
+
+        feedback.value = "";
+        feedbackOk.value = null;
+        celebrate.value = false;
+
         const result = await saveGameProgressAction(
-          page.lesson.id_leccion,
+          pageData.lesson.id_leccion,
           currentSegment,
           submission,
         );
@@ -428,15 +464,7 @@ export default component$(() => {
           ? "¡Genial! Misión perfecta."
           : passed
             ? `¡Bien! Llevas ${result.segment_xp} XP en esta misión. Repite para el máximo.`
-            : submission.kind === "spelling_build"
-              ? "Revisa las letras e intenta otra vez."
-              : submission.kind === "sentence_order"
-                ? "Revisa el orden de las palabras e intenta otra vez."
-                : submission.kind === "meaning_choice"
-                  ? "Ese no era el significado correcto. ¡Intenta otra vez!"
-                  : submission.kind === "picture_choice"
-                    ? "Esa no era la opción correcta. ¡Intenta otra vez!"
-                    : "Revisa el juego e intenta otra vez.";
+            : reviewFeedbackMessage(submission, currentGameType);
         celebrate.value = result.correct;
 
         localProgress.value = {
@@ -446,23 +474,23 @@ export default component$(() => {
           presentation_completada:
             result.presentation_completada ||
             (currentSegment === "presentation" && result.segment_perfect) ||
-            progress.presentation_completada,
+            currentProgress.presentation_completada,
           practice_completada:
             result.practice_completada ||
             (currentSegment === "practice" && result.segment_perfect) ||
-            progress.practice_completada,
+            currentProgress.practice_completada,
           use_completada:
             result.use_completada ||
             (currentSegment === "use" && result.segment_perfect) ||
-            progress.use_completada,
+            currentProgress.use_completada,
           presentation_perfect:
-            progress.presentation_perfect ||
+            currentProgress.presentation_perfect ||
             (currentSegment === "presentation" && result.segment_perfect),
           practice_perfect:
-            progress.practice_perfect ||
+            currentProgress.practice_perfect ||
             (currentSegment === "practice" && result.segment_perfect),
           use_perfect:
-            progress.use_perfect ||
+            currentProgress.use_perfect ||
             (currentSegment === "use" && result.segment_perfect),
         };
 
@@ -474,6 +502,7 @@ export default component$(() => {
         else playWrongSound();
 
         if (result.newly_completed) {
+          celebrate.value = false;
           playVictorySound();
           victoryOpen.value = true;
         } else if (passed) {
@@ -575,7 +604,7 @@ export default component$(() => {
       />
 
       <section class="moa-lesson-arena relative rounded-2xl border border-indigo-100/80 p-3 shadow-md sm:p-4">
-        <LessonCelebrateBurst active={celebrate.value} />
+        <LessonCelebrateBurst active={celebrate.value && !victoryOpen.value} />
 
         {segment.value === "presentation" && !isReviewMode ? (
           <LessonSummaryCard
@@ -584,21 +613,23 @@ export default component$(() => {
           />
         ) : null}
 
-        <LessonSegmentGameArena
-          key={`${segment.value}-${segmentGameType}-${segmentGameSeed}`}
-          segment={segment.value}
-          gameType={segmentGameType}
-          gameSeed={segmentGameSeed}
-          disabled={(segmentLocked && !isReviewMode) || saving.value}
-          saving={saving.value}
-          pictureRound={gameRounds.pictureRound}
-          meaningRound={gameRounds.meaningRound}
-          memoryPairs={gameRounds.memoryPairs}
-          matchPairs={gameRounds.matchPairs}
-          spellingRound={gameRounds.spellingRound}
-          sentenceRound={gameRounds.sentenceRound}
-          onSubmit$={(submission) => void submitGameSegment(submission)}
-        />
+        {!victoryOpen.value ? (
+          <LessonSegmentGameArena
+            key={`${segment.value}-${segmentGameType}-${segmentGameSeed}`}
+            segment={segment.value}
+            gameType={segmentGameType}
+            gameSeed={segmentGameSeed}
+            disabled={(segmentLocked && !isReviewMode) || saving.value}
+            saving={saving.value}
+            pictureRound={gameRounds.pictureRound}
+            meaningRound={gameRounds.meaningRound}
+            memoryPairs={gameRounds.memoryPairs}
+            matchPairs={gameRounds.matchPairs}
+            spellingRound={gameRounds.spellingRound}
+            sentenceRound={gameRounds.sentenceRound}
+            onSubmit$={submitGameSegment}
+          />
+        ) : null}
 
         <LessonFeedbackBanner
           message={feedback.value}
@@ -659,7 +690,7 @@ export default component$(() => {
         <LessonMissionCompleteOverlay
           segment={missionOverlay.value.segment}
           xp={missionOverlay.value.xp}
-          reviewMode={missionOverlay.value.review}
+          reviewMode={missionOverlay.value.review ?? isReviewMode}
           nextLabel={missionOverlay.value.nextLabel}
           externalHref={
             missionOverlay.value.review && !missionOverlay.value.next

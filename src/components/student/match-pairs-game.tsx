@@ -1,7 +1,7 @@
 import { $, component$, useSignal, useTask$, useVisibleTask$ } from "@builder.io/qwik";
 import { LuArrowRight } from "@qwikest/icons/lucide";
-import type { MatchPairItem } from "~/lib/lesson-games";
-import { gradeMatchPairs, shuffleMatchColumnOrders } from "~/lib/lesson-games";
+import type { GameSubmission, MatchPairItem } from "~/lib/lesson-games";
+import { shuffleMatchColumnOrders } from "~/lib/lesson-games";
 
 const MATCH_COLORS = [
   { dot: "bg-sky-500", ring: "ring-sky-200", border: "border-sky-200" },
@@ -16,23 +16,25 @@ export const MatchPairsGame = component$(
     seed: number;
     disabled?: boolean;
     saving?: boolean;
-    onSubmit$: (ratio: number, matches: Record<string, string>) => void;
+    onSubmit$: (submission: Extract<GameSubmission, { kind: "match_pairs" }>) => void;
   }) => {
     const leftOrder = useSignal<string[]>([]);
     const rightOrder = useSignal<string[]>([]);
     const selectedLeftId = useSignal<string | null>(null);
     const matchMap = useSignal<Record<string, string>>({});
+    const checked = useSignal(false);
     const elapsed = useSignal(0);
 
     useTask$(({ track }) => {
       track(() => props.pairs);
       track(() => props.seed);
-      const ids = props.pairs.map((p) => p.id);
+      const ids = (props.pairs ?? []).map((p) => p.id);
       const { left, right } = shuffleMatchColumnOrders(ids, props.seed);
       leftOrder.value = left;
       rightOrder.value = right;
       selectedLeftId.value = null;
       matchMap.value = {};
+      checked.value = false;
       elapsed.value = 0;
     });
 
@@ -57,6 +59,7 @@ export const MatchPairsGame = component$(
 
     const selectLeft = $((id: string) => {
       if (props.disabled) return;
+      checked.value = false;
       selectedLeftId.value = id;
     });
 
@@ -64,6 +67,7 @@ export const MatchPairsGame = component$(
       if (props.disabled) return;
       const leftId = selectedLeftId.value;
       if (!leftId) return;
+      checked.value = false;
 
       const next: Record<string, string> = { ...matchMap.value };
       for (const [key, value] of Object.entries(next)) {
@@ -75,26 +79,40 @@ export const MatchPairsGame = component$(
     });
 
     const linkedCount = Object.keys(matchMap.value).length;
-    const allLinked = linkedCount >= props.pairs.length;
+    const pairList = props.pairs ?? [];
+    const allLinked = linkedCount >= pairList.length;
+
+    const allCorrect =
+      pairList.length > 0 &&
+      pairList.every((pair) => matchMap.value[pair.id] === pair.id);
 
     const submit = $(() => {
-      const matches = matchMap.value;
-      const ratio = gradeMatchPairs(props.pairs, matches);
-      props.onSubmit$(ratio, matches);
+      const matches: Record<string, string> = {};
+      for (const [key, value] of Object.entries(matchMap.value)) {
+        matches[key] = value;
+      }
+      checked.value = true;
+      props.onSubmit$({ kind: "match_pairs", matches });
     });
 
-    const pairById = (id: string) => props.pairs.find((p) => p.id === id);
+    const isCorrectLink = (leftId: string) => matchMap.value[leftId] === leftId;
+
+    const pairById = (id: string) => pairList.find((p) => p.id === id);
 
     return (
       <div class="space-y-4">
         <div class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-violet-200 bg-violet-50/80 px-4 py-3">
           <p class="text-sm font-bold text-violet-800">
-            Parejas: {linkedCount}/{props.pairs.length}
+            Parejas: {linkedCount}/{pairList.length}
           </p>
           <p class="text-sm font-mono font-bold text-violet-600">
             ⏱ {formatTime(elapsed.value)}
           </p>
         </div>
+
+        <p class="text-center text-sm font-semibold text-violet-800">
+          Toca una palabra en inglés y luego su significado en español
+        </p>
 
         <div class="grid gap-4 md:grid-cols-2">
           <div class="rounded-2xl border border-slate-200 bg-white p-4">
@@ -109,6 +127,7 @@ export const MatchPairsGame = component$(
                 const linkedRightId = matchMap.value[id];
                 const linkedPair = linkedRightId ? pairById(linkedRightId) : null;
                 const color = colorForLeft(id);
+                const correct = linkedRightId ? isCorrectLink(id) : null;
 
                 return (
                   <button
@@ -121,8 +140,10 @@ export const MatchPairsGame = component$(
                       selected
                         ? "border-violet-500 bg-violet-50 ring-2 ring-violet-200"
                         : linkedRightId
-                          ? `${color.border} bg-white`
-                          : "border-slate-200 hover:border-violet-300 hover:bg-violet-50/40",
+                          ? correct
+                            ? "border-emerald-300 bg-emerald-50/50"
+                            : "border-red-300 bg-red-50/50"
+                          : `${color.border} bg-white hover:border-violet-300 hover:bg-violet-50/40`,
                     ].join(" ")}
                   >
                     <div class="flex items-center gap-3">
@@ -132,7 +153,7 @@ export const MatchPairsGame = component$(
                         {linkedPair ? (
                           <p class="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-600">
                             <span
-                              class={`inline-block h-2 w-2 rounded-full ${color.dot}`}
+                              class={`inline-block h-2 w-2 rounded-full ${correct ? "bg-emerald-500" : "bg-red-500"}`}
                             />
                             {linkedPair.meaning}
                           </p>
@@ -143,7 +164,14 @@ export const MatchPairsGame = component$(
                         )}
                       </div>
                       {linkedRightId ? (
-                        <span class="text-xs font-bold text-emerald-600">✓</span>
+                        <span
+                          class={[
+                            "text-xs font-bold",
+                            correct ? "text-emerald-600" : "text-red-600",
+                          ].join(" ")}
+                        >
+                          {correct ? "✓" : "✗"}
+                        </span>
                       ) : null}
                     </div>
                   </button>
@@ -189,6 +217,12 @@ export const MatchPairsGame = component$(
             </div>
           </div>
         </div>
+
+        {checked.value && !allCorrect ? (
+          <p class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-center text-sm font-bold text-red-800">
+            Hay parejas incorrectas (marca ✗). Corrígelas y vuelve a comprobar.
+          </p>
+        ) : null}
 
         <button
           type="button"

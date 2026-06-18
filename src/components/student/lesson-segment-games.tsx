@@ -76,9 +76,7 @@ export const LessonSegmentGameArena = component$(
             seed={props.gameSeed}
             disabled={props.disabled}
             saving={props.saving}
-            onSubmit$={(selectedMeaningId) =>
-              props.onSubmit$({ kind: "meaning_choice", selectedMeaningId })
-            }
+            onSubmit$={props.onSubmit$}
           />
         </div>
       );
@@ -102,9 +100,7 @@ export const LessonSegmentGameArena = component$(
             showTermLabels={props.segment === "use"}
             disabled={props.disabled}
             saving={props.saving}
-            onSubmit$={(selectedTerm) =>
-              props.onSubmit$({ kind: "picture_choice", selectedTerm })
-            }
+            onSubmit$={props.onSubmit$}
           />
         </div>
       );
@@ -118,7 +114,7 @@ export const LessonSegmentGameArena = component$(
             pairs={props.memoryPairs}
             seed={props.gameSeed}
             disabled={props.disabled}
-            onComplete$={() => props.onSubmit$({ kind: "memory_match" })}
+            onSubmit$={props.onSubmit$}
           />
         </div>
       );
@@ -132,9 +128,7 @@ export const LessonSegmentGameArena = component$(
             round={props.spellingRound}
             disabled={props.disabled}
             saving={props.saving}
-            onSubmit$={(built) =>
-              props.onSubmit$({ kind: "spelling_build", built })
-            }
+            onSubmit$={props.onSubmit$}
           />
         </div>
       );
@@ -148,9 +142,7 @@ export const LessonSegmentGameArena = component$(
             round={props.sentenceRound}
             disabled={props.disabled}
             saving={props.saving}
-            onSubmit$={(built) =>
-              props.onSubmit$({ kind: "sentence_order", built })
-            }
+            onSubmit$={props.onSubmit$}
           />
         </div>
       );
@@ -164,9 +156,7 @@ export const LessonSegmentGameArena = component$(
           seed={props.gameSeed}
           disabled={props.disabled}
           saving={props.saving}
-          onSubmit$={(ratio, matches) =>
-            props.onSubmit$({ kind: "match_pairs", matches })
-          }
+          onSubmit$={props.onSubmit$}
         />
       </div>
     );

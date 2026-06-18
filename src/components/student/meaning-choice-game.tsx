@@ -1,6 +1,5 @@
 import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
-import type { MeaningChoiceOption } from "~/lib/lesson-games";
-import { fisherYatesShuffle } from "~/lib/lesson-games";
+import type { GameSubmission, MeaningChoiceOption } from "~/lib/lesson-games";
 
 export const MeaningChoiceGame = component$(
   (props: {
@@ -11,7 +10,7 @@ export const MeaningChoiceGame = component$(
     seed: number;
     disabled?: boolean;
     saving?: boolean;
-    onSubmit$: (selectedMeaningId: string) => void;
+    onSubmit$: (submission: Extract<GameSubmission, { kind: "meaning_choice" }>) => void;
   }) => {
     const shuffled = useSignal<MeaningChoiceOption[]>([]);
     const selected = useSignal<string | null>(null);
@@ -19,13 +18,13 @@ export const MeaningChoiceGame = component$(
     useTask$(({ track }) => {
       track(() => props.options);
       track(() => props.seed);
-      shuffled.value = fisherYatesShuffle(props.options, props.seed);
+      shuffled.value = fisherYatesShuffle(props.options ?? [], props.seed);
       selected.value = null;
     });
 
     const submit = $(() => {
       if (!selected.value) return;
-      props.onSubmit$(selected.value);
+      props.onSubmit$({ kind: "meaning_choice", selectedMeaningId: selected.value });
     });
 
     return (
@@ -37,7 +36,7 @@ export const MeaningChoiceGame = component$(
         </div>
 
         <div class="grid gap-3 sm:grid-cols-2">
-          {shuffled.value.map((opt, index) => {
+          {(shuffled.value ?? []).map((opt, index) => {
             const isSelected = selected.value === opt.id;
             return (
               <button

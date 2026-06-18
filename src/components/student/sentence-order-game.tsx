@@ -1,25 +1,30 @@
-import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
-import type { SentenceOrderRound } from "~/lib/lesson-games";
+import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
+import type { GameSubmission, SentenceOrderRound } from "~/lib/lesson-games";
 
 export const SentenceOrderGame = component$(
   (props: {
     round: SentenceOrderRound;
     disabled?: boolean;
     saving?: boolean;
-    onSubmit$: (built: string) => void;
+    onSubmit$: (submission: Extract<GameSubmission, { kind: "sentence_order" }>) => void;
   }) => {
     const built = useSignal<string[]>([]);
     const pool = useSignal<string[]>([]);
+    const targetWords = props.round.shuffledWords ?? [];
 
-    useVisibleTask$(({ track }) => {
-      track(() => props.round);
+    useTask$(({ track }) => {
+      track(() => props.round.shuffledWords);
+      track(() => props.round.correctPhrase);
       built.value = [];
-      pool.value = [...props.round.shuffledWords];
+      pool.value = [...(props.round.shuffledWords ?? [])];
     });
 
     const addWord = $((index: number) => {
       if (props.disabled) return;
-      const next = [...pool.value];
+      const words = pool.value ?? [];
+      const maxLen = targetWords.length;
+      if (built.value.length >= maxLen) return;
+      const next = [...words];
       const word = next.splice(index, 1)[0];
       pool.value = next;
       built.value = [...built.value, word];
@@ -30,21 +35,22 @@ export const SentenceOrderGame = component$(
       const nextBuilt = [...built.value];
       const last = nextBuilt.pop()!;
       built.value = nextBuilt;
-      pool.value = [...pool.value, last];
+      pool.value = [...(pool.value ?? []), last];
     });
 
     const reset = $(() => {
       if (props.disabled) return;
-      pool.value = [...props.round.shuffledWords];
+      pool.value = [...targetWords];
       built.value = [];
     });
 
     const submit = $(() => {
-      props.onSubmit$(built.value.join(" "));
+      props.onSubmit$({ kind: "sentence_order", built: built.value.join(" ") });
     });
 
-    const complete =
-      built.value.length === props.round.shuffledWords.length;
+    const wordCount = targetWords.length;
+    const complete = built.value.length === wordCount && wordCount > 0;
+    const poolWords = pool.value ?? [];
 
     return (
       <div class="space-y-5">
@@ -67,7 +73,7 @@ export const SentenceOrderGame = component$(
         </div>
 
         <div class="flex flex-wrap justify-center gap-2">
-          {pool.value.map((word, index) => (
+          {poolWords.map((word, index) => (
             <button
               key={`${word}-${index}`}
               type="button"

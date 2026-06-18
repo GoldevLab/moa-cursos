@@ -416,8 +416,8 @@ export const buildSentenceOrderRound = (
   };
 };
 
-export const fisherYatesShuffle = <T>(items: T[], seed: number): T[] => {
-  const arr = [...items];
+export const fisherYatesShuffle = <T>(items: T[] | undefined | null, seed: number): T[] => {
+  const arr = [...(items ?? [])];
   let state = seed >>> 0;
   for (let i = arr.length - 1; i > 0; i--) {
     state = (state * 1664525 + 1013904223) >>> 0;
@@ -461,12 +461,13 @@ export const scoreFromRatio = (
 
 export const gradeMatchPairs = (
   pairs: MatchPairItem[],
-  matchMap: Record<string, string>,
+  matchMap: Record<string, string> | undefined | null,
 ): number => {
   if (pairs.length === 0) return 0;
+  const map = matchMap ?? {};
   let correct = 0;
   for (const pair of pairs) {
-    if (matchMap[pair.id] === pair.id) correct += 1;
+    if (map[pair.id] === pair.id) correct += 1;
   }
   return correct / pairs.length;
 };

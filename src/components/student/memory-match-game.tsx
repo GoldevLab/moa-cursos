@@ -1,5 +1,5 @@
 import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
-import type { MemoryPair } from "~/lib/lesson-games";
+import type { GameSubmission, MemoryPair } from "~/lib/lesson-games";
 import { fisherYatesShuffle } from "~/lib/lesson-games";
 
 type MemoryCard = {
@@ -36,7 +36,7 @@ export const MemoryMatchGame = component$(
     pairs: MemoryPair[];
     seed: number;
     disabled?: boolean;
-    onComplete$: () => void;
+    onSubmit$: (submission: Extract<GameSubmission, { kind: "memory_match" }>) => void;
   }) => {
     const cards = useSignal<MemoryCard[]>([]);
     const flippedIndices = useSignal<number[]>([]);
@@ -112,7 +112,7 @@ export const MemoryMatchGame = component$(
           solved.value += 1;
 
           if (solved.value >= props.pairs.length) {
-            void props.onComplete$();
+            props.onSubmit$({ kind: "memory_match" });
           }
         }, 500) as unknown as number;
         pendingTimers.value = [...pendingTimers.value, id];

@@ -1,5 +1,5 @@
 import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
-import type { PictureChoiceOption } from "~/lib/lesson-games";
+import type { GameSubmission, PictureChoiceOption } from "~/lib/lesson-games";
 import { fisherYatesShuffle } from "~/lib/lesson-games";
 
 export const PictureChoiceGame = component$(
@@ -12,7 +12,7 @@ export const PictureChoiceGame = component$(
     showTermLabels?: boolean;
     disabled?: boolean;
     saving?: boolean;
-    onSubmit$: (selectedTerm: string) => void;
+    onSubmit$: (submission: Extract<GameSubmission, { kind: "picture_choice" }>) => void;
   }) => {
     const shuffled = useSignal<PictureChoiceOption[]>([]);
     const selected = useSignal<string | null>(null);
@@ -20,13 +20,13 @@ export const PictureChoiceGame = component$(
     useTask$(({ track }) => {
       track(() => props.options);
       track(() => props.seed);
-      shuffled.value = fisherYatesShuffle(props.options, props.seed);
+      shuffled.value = fisherYatesShuffle(props.options ?? [], props.seed);
       selected.value = null;
     });
 
     const submit = $(() => {
       if (!selected.value) return;
-      props.onSubmit$(selected.value);
+      props.onSubmit$({ kind: "picture_choice", selectedTerm: selected.value });
     });
 
     return (
@@ -60,7 +60,7 @@ export const PictureChoiceGame = component$(
         </div>
 
         <div class="grid grid-cols-2 gap-4">
-          {shuffled.value.map((opt) => {
+          {(shuffled.value ?? []).map((opt) => {
             const isSelected = selected.value === opt.id;
             return (
               <button
