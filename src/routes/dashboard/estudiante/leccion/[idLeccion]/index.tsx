@@ -3,7 +3,6 @@ import {
   routeLoader$,
   server$,
   useLocation,
-  useNavigate,
   type DocumentHead,
 } from "@builder.io/qwik-city";
 import {
@@ -103,6 +102,7 @@ export const useLessonPage = routeLoader$(async (event) => {
   const row = lessonRes.rows[0];
   if (!row) return null;
 
+  const titulo = rowStr(row.titulo);
   const progressRes = await client.execute({
     sql: `SELECT presentation_completada, practice_completada, use_completada,
                  presentation_score, practice_score, use_score,
@@ -111,13 +111,15 @@ export const useLessonPage = routeLoader$(async (event) => {
           WHERE id_estudiante = ? AND id_leccion = ? LIMIT 1`,
     args: [perfil.id_estudiante, idLeccion],
   });
-  const progress = progressRes.rows[0];
-  const normalizedProgress =
-    (await reconcileLessonProgressInDb(perfil.id_estudiante, idLeccion)) ??
-    normalizeLessonProgress(progress ?? {});
 
-  const content = await getLessonContent(idLeccion, rowStr(row.titulo));
-  const nextLesson = await getNextLessonInfo(idLeccion);
+  const [normalizedProgress, content, nextLesson] = await Promise.all([
+    reconcileLessonProgressInDb(perfil.id_estudiante, idLeccion).then(
+      (reconciled) =>
+        reconciled ?? normalizeLessonProgress(progressRes.rows[0] ?? {}),
+    ),
+    getLessonContent(idLeccion, titulo),
+    getNextLessonInfo(idLeccion),
+  ]);
   const useSentence = getLessonUseContext(idLeccion).sentence;
 
   return {
@@ -125,7 +127,7 @@ export const useLessonPage = routeLoader$(async (event) => {
     id_estudiante: perfil.id_estudiante,
     lesson: {
       id_leccion: idLeccion,
-      titulo: rowStr(row.titulo),
+      titulo,
       competencia: rowStr(row.competencia),
       id_competencia: rowInt(row.id_competencia),
       orden: rowInt(row.orden),
@@ -227,7 +229,6 @@ const reviewFeedbackMessage = (
 export default component$(() => {
   const data = useLessonPage();
   const loc = useLocation();
-  const nav = useNavigate();
   const segment = useSignal<LessonSegment>("presentation");
   const segmentReady = useSignal(false);
   const selected = useSignal<number | null>(null);
@@ -348,6 +349,9 @@ export default component$(() => {
   const page = data.value;
   const progress = localProgress.value ?? page.progress;
   const isReviewMode = progress.completada;
+  const nextLessonHref = page.next_lesson
+    ? routes.estudiante.leccion(page.next_lesson.id_leccion, { fresh: true })
+    : null;
 
   const lessonPlan = getLessonPlan(page.lesson.id_leccion);
   const segmentGameType = getSegmentGameType(
@@ -575,22 +579,16 @@ export default component$(() => {
     missionOverlay.value = null;
   });
 
-  const goToNextLesson = $((idLeccion: number) => {
-    victoryOpen.value = false;
-    missionOverlay.value = null;
-    segment.value = "presentation";
-    segmentReady.value = false;
-    selected.value = null;
-    feedback.value = "";
-    feedbackOk.value = null;
-    celebrate.value = false;
-    localProgress.value = null;
-    markLessonFreshStart(idLeccion);
-    void nav(routes.estudiante.leccion(idLeccion, { fresh: true }));
-  });
-
   return (
     <>
+      {nextLessonHref ? (
+        <div class="hidden" aria-hidden="true">
+          <NavLink href={nextLessonHref} prefetch={true}>
+            {page.next_lesson!.titulo}
+          </NavLink>
+        </div>
+      ) : null}
+
       <div class="space-y-3 moa-fade-up">
       <LessonGameHeader
         competencia={page.lesson.competencia}
@@ -677,15 +675,14 @@ export default component$(() => {
             >
               Ver más lecciones
             </NavLink>
-            {page.next_lesson ? (
-              <button
-                type="button"
+            {page.next_lesson && nextLessonHref ? (
+              <NavLink
+                href={nextLessonHref}
                 class="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
-                onClick$={() => goToNextLesson(page.next_lesson!.id_leccion)}
               >
                 <LuSkipForward class="h-3.5 w-3.5" />
                 Siguiente: {page.next_lesson.titulo}
-              </button>
+              </NavLink>
             ) : null}
             <NavLink
               href={routes.estudiante.campus}
@@ -719,9 +716,9 @@ export default component$(() => {
           score={progress.puntaje_total}
           esPerfecta={progress.es_perfecta}
           nextLesson={page.next_lesson}
+          nextLessonHref={nextLessonHref}
           campusHref={routes.estudiante.campus}
           competenciaHref={routes.estudiante.competencia(page.lesson.id_competencia)}
-          onNext$={() => goToNextLesson(page.next_lesson!.id_leccion)}
         />
       ) : null}
 

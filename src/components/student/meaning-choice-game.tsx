@@ -1,5 +1,8 @@
 import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
+import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { GameSubmission, MeaningChoiceOption } from "~/lib/lesson-games";
+import { fisherYatesShuffle } from "~/lib/lesson-games";
+import { speakWord } from "~/lib/lesson-sounds";
 
 export const MeaningChoiceGame = component$(
   (props: {
@@ -31,7 +34,17 @@ export const MeaningChoiceGame = component$(
       <div class="space-y-5">
         <div class="rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 to-cyan-50 px-4 py-5 text-center">
           <p class="text-6xl leading-none">{props.emoji}</p>
-          <p class="mt-3 text-2xl font-black text-sky-900">{props.term}</p>
+          <div class="mt-3 flex items-center justify-center gap-2">
+            <p class="text-2xl font-black text-sky-900">{props.term}</p>
+            <button
+              type="button"
+              class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-sky-200 bg-white text-sky-700 transition hover:bg-sky-100"
+              aria-label={`Escuchar ${props.term}`}
+              onClick$={() => void speakWord(props.term, "en")}
+            >
+              <LuVolume2 class="h-4 w-4" />
+            </button>
+          </div>
           <p class="mt-2 text-sm font-semibold text-sky-700">{props.prompt}</p>
         </div>
 

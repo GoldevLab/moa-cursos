@@ -1,5 +1,7 @@
 import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
+import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { GameSubmission, SentenceOrderRound } from "~/lib/lesson-games";
+import { speakWord } from "~/lib/lesson-sounds";
 
 export const SentenceOrderGame = component$(
   (props: {
@@ -51,20 +53,59 @@ export const SentenceOrderGame = component$(
     const wordCount = targetWords.length;
     const complete = built.value.length === wordCount && wordCount > 0;
     const poolWords = pool.value ?? [];
+    const showHeader =
+      Boolean(props.round.prompt) ||
+      Boolean(props.round.hintMeaning) ||
+      Boolean(props.round.sentenceWithBlank);
 
     return (
       <div class="space-y-5">
-        <div class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 px-4 py-5">
-          <div class="flex items-start gap-3">
-            <span class="text-4xl">{props.round.emoji}</span>
-            <div>
-              <p class="text-sm font-bold text-amber-800">{props.round.prompt}</p>
-              <p class="mt-2 text-xl font-black text-amber-950">
-                {props.round.sentenceWithBlank}
-              </p>
+        {showHeader ? (
+          <div class="rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50 px-4 py-5">
+            <div class="flex items-start gap-3">
+              <span class="text-4xl">{props.round.emoji}</span>
+              <div class="min-w-0 flex-1 text-left">
+                {props.round.sentenceWithBlank ? (
+                  <p class="text-xl font-black text-amber-950">
+                    {props.round.sentenceWithBlank}
+                  </p>
+                ) : null}
+                {props.round.hintMeaning ? (
+                  <div
+                    class={[
+                      "flex items-center gap-2",
+                      props.round.sentenceWithBlank ? "mt-2" : "",
+                    ].join(" ")}
+                  >
+                    <p class="text-sm font-semibold text-amber-900">
+                      Pista: «{props.round.hintMeaning}»
+                    </p>
+                    <button
+                      type="button"
+                      class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-100"
+                      aria-label={`Escuchar «${props.round.hintMeaning}»`}
+                      onClick$={() => void speakWord(props.round.hintMeaning!, "es")}
+                    >
+                      <LuVolume2 class="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : null}
+                {props.round.prompt ? (
+                  <p
+                    class={[
+                      "text-sm font-bold text-amber-800",
+                      props.round.sentenceWithBlank || props.round.hintMeaning
+                        ? "mt-2"
+                        : "",
+                    ].join(" ")}
+                  >
+                    {props.round.prompt}
+                  </p>
+                ) : null}
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div class="min-h-[4.5rem] rounded-2xl border-2 border-dashed border-amber-300 bg-white px-4 py-4">
           <p class="text-lg font-bold leading-relaxed text-slate-800">

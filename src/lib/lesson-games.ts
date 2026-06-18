@@ -161,7 +161,9 @@ export type SpellingRound = {
 };
 
 export type SentenceOrderRound = {
+  /** Instrucción sin repetir la pista ni la frase. */
   prompt: string;
+  hintMeaning?: string;
   sentenceWithBlank: string;
   shuffledWords: string[];
   correctPhrase: string;
@@ -304,7 +306,7 @@ export const buildPictureChoiceRound = (
   const options = fisherYatesShuffle(rawOptions, seed);
   const english = cap(focus.term);
   return {
-    prompt: `¿Qué imagen es "${english}"?`,
+    prompt: "Elige la imagen correcta",
     englishTerm: english,
     options,
     correctTerm: focus.term.toLowerCase(),
@@ -337,7 +339,7 @@ export const buildMeaningChoiceRound = (
   }
   const options = fisherYatesShuffle(rawOptions, seed);
   return {
-    prompt: `¿Qué significa "${cap(focus.term)}" en español?`,
+    prompt: "Elige su significado en español",
     emoji: getOptionEmoji(focus.term),
     term: cap(focus.term),
     options,
@@ -370,7 +372,7 @@ export const buildUsePictureRound = (
   ];
   const options = fisherYatesShuffle(rawOptions, seed);
   return {
-    prompt: "Elige la palabra en inglés que completa la frase",
+    prompt: "Elige la palabra correcta",
     sentence: sentenceWithBlank,
     hintMeaning: meaningHint,
     options,
@@ -431,7 +433,8 @@ export const buildSentenceOrderRound = (
 ): SentenceOrderRound => {
   const words = sentenceFilled.replace(/\s+/g, " ").trim().split(" ");
   return {
-    prompt: `Ordena la frase en inglés. Pista: «${meaning}»`,
+    prompt: "Ordena las palabras en inglés",
+    hintMeaning: meaning,
     sentenceWithBlank: sentenceTemplate,
     shuffledWords: fisherYatesShuffle(words, seed),
     correctPhrase: words.join(" "),
@@ -632,13 +635,13 @@ const GAME_UI_BASE: Record<
   picture_choice: {
     emoji: "🖼️",
     title: "¡Elige la imagen!",
-    hint: "Lee la palabra en inglés y toca el emoji correcto",
+    hint: "Elige la imagen que corresponde",
     badge: "Palabra en inglés",
   },
   meaning_choice: {
     emoji: "💬",
     title: "¡Adivina el significado!",
-    hint: "Mira la palabra en inglés y elige su traducción en español",
+    hint: "Elige su significado en español",
     badge: "Significado correcto",
   },
   memory_match: {
@@ -684,7 +687,7 @@ export const getSegmentGameUi = (
     return {
       ...base,
       title: "¡Encuentra la palabra!",
-      hint: "Mira la palabra en inglés y toca su imagen",
+      hint: "Elige la imagen correcta",
     };
   }
   if (segment === "use" && gameType === "spelling_build") {

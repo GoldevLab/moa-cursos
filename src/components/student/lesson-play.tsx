@@ -696,9 +696,9 @@ export const LessonVictoryModal = component$(
     score: number;
     esPerfecta: boolean;
     nextLesson?: { id_leccion: number; titulo: string } | null;
+    nextLessonHref?: string | null;
     campusHref: string;
     competenciaHref: string;
-    onNext$: () => void;
   }) => (
     <div
       class={`${LESSON_MODAL_SHELL} bg-indigo-900/60`}
@@ -740,14 +740,14 @@ export const LessonVictoryModal = component$(
               ) : null}
             </p>
             <div class="mt-6 flex flex-col gap-3">
-              {props.nextLesson ? (
-                <button
-                  type="button"
-                  onClick$={props.onNext$}
-                  class="w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4 text-lg font-black text-white shadow-lg"
+              {props.nextLesson && props.nextLessonHref ? (
+                <NavLink
+                  href={props.nextLessonHref}
+                  prefetch={true}
+                  class="block w-full rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-6 py-4 text-center text-lg font-black text-white shadow-lg"
                 >
                   Siguiente: {props.nextLesson.titulo}
-                </button>
+                </NavLink>
               ) : null}
               <NavLink
                 href={props.competenciaHref}

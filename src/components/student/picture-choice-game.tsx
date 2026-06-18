@@ -1,6 +1,8 @@
 import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
+import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { GameSubmission, PictureChoiceOption } from "~/lib/lesson-games";
 import { fisherYatesShuffle } from "~/lib/lesson-games";
+import { speakWord } from "~/lib/lesson-sounds";
 
 export const PictureChoiceGame = component$(
   (props: {
@@ -29,8 +31,14 @@ export const PictureChoiceGame = component$(
       props.onSubmit$({ kind: "picture_choice", selectedTerm: selected.value });
     });
 
+    const showHeader =
+      (props.englishTerm && !props.showTermLabels) ||
+      Boolean(props.prompt) ||
+      Boolean(props.hintMeaning);
+
     return (
       <div class="space-y-5">
+        {showHeader ? (
         <div
           class={[
             "rounded-2xl border px-4 py-4 text-center",
@@ -39,25 +47,37 @@ export const PictureChoiceGame = component$(
               : "border-violet-200 bg-violet-50/80",
           ].join(" ")}
         >
+          {props.englishTerm && !props.showTermLabels ? (
+            <div class="flex items-center justify-center gap-2">
+              <p class="text-3xl font-black tracking-wide text-slate-900">
+                {props.englishTerm}
+              </p>
+              <button
+                type="button"
+                class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white text-violet-700 transition hover:bg-violet-100"
+                aria-label={`Escuchar ${props.englishTerm}`}
+                onClick$={() => void speakWord(props.englishTerm!, "en")}
+              >
+                <LuVolume2 class="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
           <p
             class={[
+              props.englishTerm && !props.showTermLabels ? "mt-2" : "",
               "text-sm font-bold",
               props.showTermLabels ? "text-amber-800" : "text-violet-800",
             ].join(" ")}
           >
             {props.prompt}
           </p>
-          {props.englishTerm ? (
-            <p class="mt-2 text-3xl font-black tracking-wide text-slate-900">
-              {props.englishTerm}
-            </p>
-          ) : null}
           {props.hintMeaning ? (
             <p class="mt-2 text-sm font-semibold text-slate-600">
               💡 Pista: {props.hintMeaning}
             </p>
           ) : null}
         </div>
+        ) : null}
 
         <div class="grid grid-cols-2 gap-4">
           {(shuffled.value ?? []).map((opt) => {

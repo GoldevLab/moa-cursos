@@ -1,6 +1,8 @@
 import { component$ } from "@builder.io/qwik";
+import { LuVolume2 } from "@qwikest/icons/lucide";
 import type { LessonSegment } from "~/lib/constants";
 import type { LessonGameType, GameSubmission } from "~/lib/lesson-games";
+import { speakWord } from "~/lib/lesson-sounds";
 import {
   buildMatchPairs,
   buildMeaningChoiceRound,
@@ -82,20 +84,45 @@ export const LessonSegmentGameArena = component$(
     }
 
     if (gameType === "picture_choice") {
+      const usePictureHeader = Boolean(props.pictureRound.sentence);
       return (
         <div class={shellClass(segment)}>
-          {props.pictureRound.sentence ? (
-            <p class="mb-4 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-3 text-center text-xl font-black text-amber-950">
-              {props.pictureRound.sentence}
-            </p>
+          {usePictureHeader ? (
+            <div class="mb-4 rounded-2xl border border-amber-200 bg-amber-50/80 px-4 py-4 text-center">
+              <p class="text-xl font-black text-amber-950">
+                {props.pictureRound.sentence}
+              </p>
+              {props.pictureRound.prompt ? (
+                <p class="mt-2 text-sm font-bold text-amber-800">
+                  {props.pictureRound.prompt}
+                </p>
+              ) : null}
+              {props.pictureRound.hintMeaning ? (
+                <div class="mt-2 flex items-center justify-center gap-2">
+                  <p class="text-sm font-semibold text-slate-600">
+                    💡 Pista: {props.pictureRound.hintMeaning}
+                  </p>
+                  <button
+                    type="button"
+                    class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 transition hover:bg-amber-100"
+                    aria-label={`Escuchar «${props.pictureRound.hintMeaning}»`}
+                    onClick$={() =>
+                      void speakWord(props.pictureRound.hintMeaning!, "es")
+                    }
+                  >
+                    <LuVolume2 class="h-4 w-4" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
           ) : null}
           <PictureChoiceGame
             key={`picture-${props.gameSeed}`}
-            prompt={props.pictureRound.prompt}
+            prompt={usePictureHeader ? "" : props.pictureRound.prompt}
             options={props.pictureRound.options}
             seed={props.gameSeed}
             englishTerm={props.pictureRound.englishTerm}
-            hintMeaning={props.pictureRound.hintMeaning}
+            hintMeaning={usePictureHeader ? undefined : props.pictureRound.hintMeaning}
             showTermLabels={props.segment === "use"}
             disabled={props.disabled}
             saving={props.saving}
@@ -227,6 +254,7 @@ export const buildSegmentGameRounds = (input: {
         )
       : {
           prompt: "",
+          hintMeaning: undefined,
           sentenceWithBlank: "",
           shuffledWords: [],
           correctPhrase: "",
