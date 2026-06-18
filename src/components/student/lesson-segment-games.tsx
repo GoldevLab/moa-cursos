@@ -12,6 +12,7 @@ import {
   buildSpellingRound,
   buildUsePictureRound,
   fillUseSentenceBlank,
+  formatSentenceOrderTemplate,
   type MeaningChoiceOption,
   type MemoryPair,
   type MatchPairItem,
@@ -240,7 +241,9 @@ export const buildSegmentGameRounds = (input: {
   const spellingRound = buildSpellingRound(
     input.focus,
     input.gameSeed,
-    input.segment === "use" ? input.useSentence : undefined,
+    input.segment === "use" && input.useSentence
+      ? formatSentenceOrderTemplate(input.useSentence)
+      : undefined,
   );
 
   const sentenceRound =

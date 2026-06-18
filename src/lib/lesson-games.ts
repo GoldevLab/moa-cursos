@@ -236,6 +236,29 @@ const buildSpellingLetterPool = (
 export const fillUseSentenceBlank = (template: string, term: string): string =>
   template.replace(/___+/g, cap(term));
 
+const SENTENCE_ORDER_PUNCT_ONLY = /^[.!?…,;:]+$/;
+
+/** Palabras ordenables: sin fichas de puntuación sueltas ni signos al final. */
+export const tokenizeSentenceOrderWords = (sentence: string): string[] => {
+  const tokens = sentence.replace(/\s+/g, " ").trim().split(" ");
+  const words: string[] = [];
+  for (const token of tokens) {
+    if (!token || SENTENCE_ORDER_PUNCT_ONLY.test(token)) continue;
+    const word = token.replace(/[.!?…,;:]+$/g, "");
+    if (word) words.push(word);
+  }
+  return words;
+};
+
+/** Plantilla sin puntuación final (el punto no se ordena ni se muestra). */
+export const formatSentenceOrderTemplate = (template: string): string =>
+  template
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\s+[.!?…,;:]+$/g, "")
+    .replace(/[.!?…,;:]+$/g, "")
+    .trim();
+
 const pickThemeDistractor = (
   vocabulary: VocabItem[],
   themeIndex: number,
@@ -373,7 +396,7 @@ export const buildUsePictureRound = (
   const options = fisherYatesShuffle(rawOptions, seed);
   return {
     prompt: "Elige la palabra correcta",
-    sentence: sentenceWithBlank,
+    sentence: formatSentenceOrderTemplate(sentenceWithBlank),
     hintMeaning: meaningHint,
     options,
     correctTerm: focus.term.toLowerCase(),
@@ -431,11 +454,11 @@ export const buildSentenceOrderRound = (
   meaning: string,
   seed: number,
 ): SentenceOrderRound => {
-  const words = sentenceFilled.replace(/\s+/g, " ").trim().split(" ");
+  const words = tokenizeSentenceOrderWords(sentenceFilled);
   return {
     prompt: "Ordena las palabras en inglés",
     hintMeaning: meaning,
-    sentenceWithBlank: sentenceTemplate,
+    sentenceWithBlank: formatSentenceOrderTemplate(sentenceTemplate),
     shuffledWords: fisherYatesShuffle(words, seed),
     correctPhrase: words.join(" "),
     emoji: getOptionEmoji(focusTerm),
@@ -528,7 +551,7 @@ export const gradeSentenceOrder = (
   built: string,
 ): number => {
   const norm = (value: string) =>
-    value.trim().toLowerCase().replace(/\s+/g, " ");
+    tokenizeSentenceOrderWords(value).join(" ").toLowerCase();
   return norm(built) === norm(correctPhrase) ? 1 : 0;
 };
 
