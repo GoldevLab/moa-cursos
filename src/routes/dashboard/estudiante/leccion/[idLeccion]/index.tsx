@@ -1,6 +1,5 @@
 import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
 import {
-  Link,
   routeLoader$,
   server$,
   useLocation,
@@ -30,6 +29,7 @@ import {
 import {
   BreadcrumbTrail,
 } from "~/components/student/student-ui";
+import { NavLink } from "~/components/ui/nav-link";
 import { MAX_POINTS_PER_LESSON, SEGMENT_POINTS } from "~/lib/constants";
 import type { LessonSegment } from "~/lib/constants";
 import { getCurrentUsuario } from "~/lib/auth";
@@ -50,6 +50,7 @@ import {
   reconcileLessonProgressInDb,
   saveSegmentProgress,
 } from "~/lib/progress";
+import { routes } from "~/lib/routes";
 import {
   getLessonContent,
   getLessonUseContext,
@@ -317,12 +318,12 @@ export default component$(() => {
         <p class="mt-2 text-sm">
           Completa la lección anterior para desbloquear esta actividad.
         </p>
-        <Link
-          href="/dashboard/estudiante/"
+        <NavLink
+          href={routes.estudiante.campus}
           class="mt-6 inline-flex rounded-xl bg-amber-800 px-5 py-2.5 text-sm font-semibold text-white"
         >
           Volver al campus
-        </Link>
+        </NavLink>
       </div>
     );
   }
@@ -537,13 +538,11 @@ export default component$(() => {
       feedback.value = "";
       feedbackOk.value = null;
       celebrate.value = false;
-    } else if (overlay.review) {
-      nav(`/dashboard/estudiante/competencia/${page.lesson.id_competencia}/`);
     }
     missionOverlay.value = null;
   });
 
-  const dismissVictoryAnd = $((href: string, freshStartLessonId?: number) => {
+  const goToNextLesson = $((idLeccion: number) => {
     victoryOpen.value = false;
     missionOverlay.value = null;
     segment.value = "presentation";
@@ -553,24 +552,18 @@ export default component$(() => {
     feedbackOk.value = null;
     celebrate.value = false;
     localProgress.value = null;
-    if (freshStartLessonId) {
-      markLessonFreshStart(freshStartLessonId);
-    }
-    const dest =
-      freshStartLessonId && href.includes("/leccion/")
-        ? `/dashboard/estudiante/leccion/${freshStartLessonId}/?fresh=1`
-        : href;
-    void nav(dest);
+    markLessonFreshStart(idLeccion);
+    void nav(routes.estudiante.leccion(idLeccion, { fresh: true }));
   });
 
   return (
     <div class="space-y-6 moa-fade-up">
       <BreadcrumbTrail
         items={[
-          { label: "Mi campus", href: "/dashboard/estudiante/" },
+          { label: "Mi campus", href: routes.estudiante.campus },
           {
             label: page.lesson.competencia,
-            href: `/dashboard/estudiante/competencia/${page.lesson.id_competencia}/`,
+            href: routes.estudiante.competencia(page.lesson.id_competencia),
           },
           { label: page.lesson.titulo },
         ]}
@@ -673,39 +666,28 @@ export default component$(() => {
             retrocederá.
           </p>
           <div class="mt-5 flex flex-wrap gap-3">
-            <button
-              type="button"
+            <NavLink
+              href={routes.estudiante.competencia(page.lesson.id_competencia)}
               class="rounded-xl bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-600"
-              onClick$={() =>
-                nav(
-                  `/dashboard/estudiante/competencia/${page.lesson.id_competencia}/`,
-                )
-              }
             >
               Ver más lecciones
-            </button>
+            </NavLink>
             {page.next_lesson ? (
               <button
                 type="button"
                 class="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-500"
-                onClick$={() =>
-                  dismissVictoryAnd(
-                    `/dashboard/estudiante/leccion/${page.next_lesson!.id_leccion}/`,
-                    page.next_lesson!.id_leccion,
-                  )
-                }
+                onClick$={() => goToNextLesson(page.next_lesson!.id_leccion)}
               >
                 <LuSkipForward class="h-4 w-4" />
                 Siguiente: {page.next_lesson.titulo}
               </button>
             ) : null}
-            <button
-              type="button"
+            <NavLink
+              href={routes.estudiante.campus}
               class="rounded-xl border border-emerald-300 bg-white px-5 py-2.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
-              onClick$={() => nav("/dashboard/estudiante/")}
             >
               Ir al campus
-            </button>
+            </NavLink>
           </div>
         </div>
       ) : null}
@@ -716,6 +698,11 @@ export default component$(() => {
           xp={missionOverlay.value.xp}
           reviewMode={missionOverlay.value.review}
           nextLabel={missionOverlay.value.nextLabel}
+          externalHref={
+            missionOverlay.value.review && !missionOverlay.value.next
+              ? routes.estudiante.competencia(page.lesson.id_competencia)
+              : undefined
+          }
           onContinue$={dismissMissionOverlay}
         />
       ) : null}
@@ -726,19 +713,9 @@ export default component$(() => {
           score={progress.puntaje_total}
           esPerfecta={progress.es_perfecta}
           nextLesson={page.next_lesson}
-          idCompetencia={page.lesson.id_competencia}
-          onCampus$={() => dismissVictoryAnd("/dashboard/estudiante/")}
-          onNext$={() =>
-            dismissVictoryAnd(
-              `/dashboard/estudiante/leccion/${page.next_lesson!.id_leccion}/`,
-              page.next_lesson!.id_leccion,
-            )
-          }
-          onCompetencia$={() =>
-            dismissVictoryAnd(
-              `/dashboard/estudiante/competencia/${page.lesson.id_competencia}/`,
-            )
-          }
+          campusHref={routes.estudiante.campus}
+          competenciaHref={routes.estudiante.competencia(page.lesson.id_competencia)}
+          onNext$={() => goToNextLesson(page.next_lesson!.id_leccion)}
         />
       ) : null}
 

@@ -45,14 +45,29 @@ const PRACTICE_GAMES: Record<number, LessonGameType> = {
 };
 
 const USE_GAMES: Record<number, LessonGameType> = {
-  1: "picture_choice",
+  1: "sentence_order",
   2: "sentence_order",
-  3: "spelling_build",
+  3: "picture_choice",
   4: "sentence_order",
-  5: "picture_choice",
+  5: "sentence_order",
   6: "sentence_order",
-  7: "spelling_build",
+  7: "picture_choice",
   8: "picture_choice",
+};
+
+const USE_GAME_FALLBACK: Partial<Record<LessonGameType, LessonGameType>> = {
+  picture_choice: "sentence_order",
+  spelling_build: "sentence_order",
+  memory_match: "sentence_order",
+  match_pairs: "picture_choice",
+};
+
+const resolveUseGameType = (slot: number): LessonGameType => {
+  let game = USE_GAMES[slot];
+  if (game === PRACTICE_GAMES[slot]) {
+    game = USE_GAME_FALLBACK[game] ?? "sentence_order";
+  }
+  return game;
 };
 
 export const getSegmentGameType = (
@@ -62,7 +77,7 @@ export const getSegmentGameType = (
   const slot = slotForLesson(idLeccion);
   if (segment === "presentation") return PRESENTATION_GAMES[slot];
   if (segment === "practice") return PRACTICE_GAMES[slot];
-  return USE_GAMES[slot];
+  return resolveUseGameType(slot);
 };
 
 export const getPracticeGameType = (
@@ -102,6 +117,10 @@ export type SpellingRound = {
   letters: string[];
   emoji: string;
   meaning: string;
+  /** Letras de la respuesta en inglés (para el prompt). */
+  letterCount: number;
+  /** Si la pista en español podría confundir (se forma con letras del inglés). */
+  suppressSpanishHint?: boolean;
   contextHint?: string;
 };
 
@@ -123,6 +142,58 @@ export type GameSubmission =
 
 const cap = (word: string) =>
   word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+
+const normalizeSpellTarget = (text: string) =>
+  text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, "");
+
+const canSpellWithLetters = (target: string, letters: readonly string[]) => {
+  const pool = letters.map((ch) => ch.toLowerCase());
+  for (const ch of normalizeSpellTarget(target)) {
+    const idx = pool.indexOf(ch);
+    if (idx === -1) return false;
+    pool.splice(idx, 1);
+  }
+  return true;
+};
+
+const buildSpellingLetterPool = (
+  answer: string,
+  meaning: string,
+  seed: number,
+): string[] => {
+  const answerChars = answer.split("");
+  const meaningNorm = normalizeSpellTarget(meaning);
+  const forbiddenDecoys = new Set(
+    meaningNorm.split("").filter((ch) => !answer.includes(ch)),
+  );
+  const decoyPool = "aeiourstlnm".split("").filter(
+    (ch) => !answer.includes(ch) && !forbiddenDecoys.has(ch),
+  );
+  const extraCount = Math.min(3, Math.max(0, 8 - answer.length));
+
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const decoys = fisherYatesShuffle(decoyPool, (seed + attempt * 17) >>> 0).slice(
+      0,
+      extraCount,
+    );
+    const letters = fisherYatesShuffle(
+      [...answerChars, ...decoys],
+      (seed ^ (attempt * 0x45d9f3b)) >>> 0,
+    );
+    if (
+      meaningNorm === answer ||
+      !canSpellWithLetters(meaningNorm, letters)
+    ) {
+      return letters;
+    }
+  }
+
+  return fisherYatesShuffle(answerChars, seed);
+};
 
 export const fillUseSentenceBlank = (template: string, term: string): string =>
   template.replace(/___+/g, cap(term));
@@ -181,7 +252,12 @@ export const buildPictureChoiceRound = (
   themeIndex: number,
   lessonSlot: number,
   seed: number,
-): { prompt: string; options: PictureChoiceOption[]; correctTerm: string } => {
+): {
+  prompt: string;
+  englishTerm: string;
+  options: PictureChoiceOption[];
+  correctTerm: string;
+} => {
   const focus = vocabulary[focusIndex];
   const distractor = pickThemeDistractor(vocabulary, themeIndex, lessonSlot);
 
@@ -199,8 +275,10 @@ export const buildPictureChoiceRound = (
   ];
 
   const options = fisherYatesShuffle(rawOptions, seed);
+  const english = cap(focus.term);
   return {
-    prompt: `¿Cuál imagen es «${focus.meaning}»?`,
+    prompt: `¿Qué imagen es "${english}"?`,
+    englishTerm: english,
     options,
     correctTerm: focus.term.toLowerCase(),
   };
@@ -265,8 +343,9 @@ export const buildUsePictureRound = (
   ];
   const options = fisherYatesShuffle(rawOptions, seed);
   return {
-    prompt: `Usa «${meaningHint}» en inglés.`,
+    prompt: "Elige la palabra en inglés que completa la frase",
     sentence: sentenceWithBlank,
+    hintMeaning: meaningHint,
     options,
     correctTerm: focus.term.toLowerCase(),
   };
@@ -278,17 +357,18 @@ export const buildSpellingRound = (
   contextHint?: string,
 ): SpellingRound => {
   const answer = focus.term.toLowerCase();
-  const decoys = "aeiourstlnm".split("").filter((ch) => !answer.includes(ch));
-  const extraCount = Math.min(3, Math.max(0, 8 - answer.length));
-  const letters = fisherYatesShuffle(
-    [...answer.split(""), ...decoys.slice(0, extraCount)],
-    seed,
-  );
+  const meaningNorm = normalizeSpellTarget(focus.meaning);
+  const letters = buildSpellingLetterPool(answer, focus.meaning, seed);
+  const suppressSpanishHint =
+    meaningNorm !== answer &&
+    canSpellWithLetters(meaningNorm, answer.split(""));
   return {
     answer,
     letters,
     emoji: getOptionEmoji(focus.term),
     meaning: focus.meaning,
+    letterCount: answer.length,
+    suppressSpanishHint,
     contextHint,
   };
 };
@@ -319,6 +399,29 @@ export const fisherYatesShuffle = <T>(items: T[], seed: number): T[] => {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+};
+
+/** Ordena columnas inglés/español de forma independiente (nunca alineadas). */
+export const shuffleMatchColumnOrders = (
+  ids: string[],
+  seed: number,
+): { left: string[]; right: string[] } => {
+  if (ids.length <= 1) {
+    return { left: [...ids], right: [...ids] };
+  }
+  const left = fisherYatesShuffle(ids, (seed ^ 0x9e3779b1) >>> 0);
+  let right = fisherYatesShuffle(ids, (seed ^ 0x85ebca6b) >>> 0);
+  for (
+    let attempt = 0;
+    attempt < 16 && left.every((id, index) => id === right[index]);
+    attempt++
+  ) {
+    right = fisherYatesShuffle(
+      ids,
+      ((seed + attempt * 7919 + 1) ^ 0xc2b2ae35) >>> 0,
+    );
+  }
+  return { left, right };
 };
 
 export const scoreFromRatio = (
@@ -479,8 +582,8 @@ const GAME_UI_BASE: Record<
   picture_choice: {
     emoji: "🖼️",
     title: "¡Elige la imagen!",
-    hint: "Lee la pista y toca el emoji correcto",
-    badge: "Imagen correcta",
+    hint: "Lee la palabra en inglés y toca el emoji correcto",
+    badge: "Palabra en inglés",
   },
   meaning_choice: {
     emoji: "💬",
@@ -528,8 +631,16 @@ export const getSegmentGameUi = (
   if (segment === "use" && gameType === "picture_choice") {
     return {
       ...base,
-      title: "¡Completa con la imagen!",
-      hint: "Lee la frase y elige la palabra en inglés que encaja",
+      title: "¡Completa la frase!",
+      hint: "Lee la oración y elige la palabra en inglés que encaja",
+      badge: "Completa la frase",
+    };
+  }
+  if (segment === "practice" && gameType === "picture_choice") {
+    return {
+      ...base,
+      title: "¡Encuentra la palabra!",
+      hint: "Mira la palabra en inglés y toca su imagen",
     };
   }
   if (segment === "use" && gameType === "spelling_build") {

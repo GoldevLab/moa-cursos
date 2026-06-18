@@ -1,5 +1,5 @@
 import { component$ } from "@builder.io/qwik";
-import { Link, routeLoader$, type DocumentHead } from "@builder.io/qwik-city";
+import { routeLoader$, type DocumentHead } from "@builder.io/qwik-city";
 import {
   LuCheck,
   LuLock,
@@ -10,6 +10,7 @@ import {
   BreadcrumbTrail,
   LAPSO_COLORS,
 } from "~/components/student/student-ui";
+import { NavLink } from "~/components/ui/nav-link";
 import { MAX_POINTS_PER_LESSON } from "~/lib/constants";
 import { getCurrentUsuario } from "~/lib/auth";
 import {
@@ -17,6 +18,7 @@ import {
   getLeccionesForCompetencia,
   isCompetenciaUnlocked,
 } from "~/lib/progress";
+import { routes } from "~/lib/routes";
 import { getDbClient, rowInt, rowStr } from "~/lib/db";
 import { ensureMoaSchema } from "~/lib/schema";
 
@@ -124,12 +126,12 @@ export default component$(() => {
         <p class="mt-2 text-sm">
           Esta competencia no pertenece a tu grado actual.
         </p>
-        <Link
-          href="/dashboard/estudiante/"
+        <NavLink
+          href={routes.estudiante.campus}
           class="mt-6 inline-flex rounded-xl bg-amber-800 px-5 py-2.5 text-sm font-semibold text-white"
         >
           Volver al campus
-        </Link>
+        </NavLink>
       </div>
     );
   }
@@ -145,12 +147,12 @@ export default component$(() => {
           Debes completar todas las lecciones de la competencia anterior para
           desbloquear esta.
         </p>
-        <Link
-          href="/dashboard/estudiante/"
+        <NavLink
+          href={routes.estudiante.campus}
           class="mt-6 inline-flex rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white"
         >
           Volver al campus
-        </Link>
+        </NavLink>
       </div>
     );
   }
@@ -165,7 +167,7 @@ export default component$(() => {
     <div class="space-y-8 moa-fade-up">
       <BreadcrumbTrail
         items={[
-          { label: "Mi campus", href: "/dashboard/estudiante/" },
+          { label: "Mi campus", href: routes.estudiante.campus },
           { label: competencia.titulo },
         ]}
       />
@@ -281,8 +283,8 @@ export default component$(() => {
                   </div>
 
                   {lesson.unlocked ? (
-                    <Link
-                      href={`/dashboard/estudiante/leccion/${lesson.id_leccion}/`}
+                    <NavLink
+                      href={routes.estudiante.leccion(lesson.id_leccion)}
                       class={[
                         "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:brightness-105",
                         lesson.completada
@@ -301,7 +303,7 @@ export default component$(() => {
                           Empezar
                         </>
                       )}
-                    </Link>
+                    </NavLink>
                   ) : (
                     <span class="inline-flex items-center gap-2 rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-500">
                       <LuLock class="h-4 w-4" />

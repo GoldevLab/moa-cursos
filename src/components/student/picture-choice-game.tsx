@@ -1,4 +1,4 @@
-import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
+import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
 import type { PictureChoiceOption } from "~/lib/lesson-games";
 import { fisherYatesShuffle } from "~/lib/lesson-games";
 
@@ -7,6 +7,9 @@ export const PictureChoiceGame = component$(
     prompt: string;
     options: PictureChoiceOption[];
     seed: number;
+    englishTerm?: string;
+    hintMeaning?: string;
+    showTermLabels?: boolean;
     disabled?: boolean;
     saving?: boolean;
     onSubmit$: (selectedTerm: string) => void;
@@ -14,7 +17,7 @@ export const PictureChoiceGame = component$(
     const shuffled = useSignal<PictureChoiceOption[]>([]);
     const selected = useSignal<string | null>(null);
 
-    useVisibleTask$(({ track }) => {
+    useTask$(({ track }) => {
       track(() => props.options);
       track(() => props.seed);
       shuffled.value = fisherYatesShuffle(props.options, props.seed);
@@ -28,9 +31,33 @@ export const PictureChoiceGame = component$(
 
     return (
       <div class="space-y-5">
-        <p class="rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-center text-lg font-black text-sky-900">
-          {props.prompt}
-        </p>
+        <div
+          class={[
+            "rounded-2xl border px-4 py-4 text-center",
+            props.showTermLabels
+              ? "border-amber-200 bg-amber-50/80"
+              : "border-violet-200 bg-violet-50/80",
+          ].join(" ")}
+        >
+          <p
+            class={[
+              "text-sm font-bold",
+              props.showTermLabels ? "text-amber-800" : "text-violet-800",
+            ].join(" ")}
+          >
+            {props.prompt}
+          </p>
+          {props.englishTerm ? (
+            <p class="mt-2 text-3xl font-black tracking-wide text-slate-900">
+              {props.englishTerm}
+            </p>
+          ) : null}
+          {props.hintMeaning ? (
+            <p class="mt-2 text-sm font-semibold text-slate-600">
+              💡 Pista: {props.hintMeaning}
+            </p>
+          ) : null}
+        </div>
 
         <div class="grid grid-cols-2 gap-4">
           {shuffled.value.map((opt) => {
@@ -46,13 +73,19 @@ export const PictureChoiceGame = component$(
                 class={[
                   "flex min-h-[8rem] flex-col items-center justify-center rounded-3xl border-2 p-4 transition-all",
                   isSelected
-                    ? "border-sky-500 bg-sky-50 ring-2 ring-sky-200 scale-[1.02]"
-                    : "border-slate-200 bg-white hover:border-sky-300 hover:bg-sky-50/50",
+                    ? props.showTermLabels
+                      ? "border-amber-500 bg-amber-50 ring-2 ring-amber-200 scale-[1.02]"
+                      : "border-violet-500 bg-violet-50 ring-2 ring-violet-200 scale-[1.02]"
+                    : "border-slate-200 bg-white hover:border-violet-300 hover:bg-violet-50/50",
                 ].join(" ")}
               >
                 <span class="text-6xl leading-none">{opt.emoji}</span>
-                {isSelected ? (
-                  <span class="mt-2 text-xs font-bold uppercase tracking-wide text-sky-600">
+                {props.showTermLabels ? (
+                  <span class="mt-2 text-base font-black text-slate-800">
+                    {opt.term}
+                  </span>
+                ) : isSelected ? (
+                  <span class="mt-2 text-xs font-bold uppercase tracking-wide text-violet-600">
                     Elegida
                   </span>
                 ) : null}
@@ -65,7 +98,12 @@ export const PictureChoiceGame = component$(
           type="button"
           disabled={props.disabled || props.saving || !selected.value}
           onClick$={submit}
-          class="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-500 to-cyan-600 px-6 py-4 text-lg font-black text-white shadow-lg transition hover:brightness-105 disabled:opacity-50 sm:w-auto"
+          class={[
+            "inline-flex w-full items-center justify-center gap-2 rounded-2xl px-6 py-4 text-lg font-black text-white shadow-lg transition hover:brightness-105 disabled:opacity-50 sm:w-auto",
+            props.showTermLabels
+              ? "bg-gradient-to-r from-amber-500 to-orange-600"
+              : "bg-gradient-to-r from-violet-500 to-indigo-600",
+          ].join(" ")}
         >
           {props.saving ? "Guardando..." : "¡Comprobar!"}
         </button>

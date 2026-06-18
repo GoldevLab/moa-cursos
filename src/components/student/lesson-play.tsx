@@ -1,4 +1,5 @@
 import { component$ } from "@builder.io/qwik";
+import { NavLink } from "~/components/ui/nav-link";
 import {
   LuCheck,
   LuCircle,
@@ -608,6 +609,7 @@ export const LessonMissionCompleteOverlay = component$(
     xp: number;
     reviewMode?: boolean;
     nextLabel?: string;
+    externalHref?: string;
     onContinue$: () => void;
   }) => {
     const theme = SEGMENT_THEME[props.segment];
@@ -652,16 +654,28 @@ export const LessonMissionCompleteOverlay = component$(
               +{props.xp} XP
             </p>
           ) : null}
-          <button
-            type="button"
-            onClick$={props.onContinue$}
-            class={[
-              "mt-6 w-full rounded-2xl px-6 py-4 text-lg font-black text-white shadow-xl transition hover:brightness-105",
-              `bg-gradient-to-r ${theme.gradient}`,
-            ].join(" ")}
-          >
-            {props.nextLabel ?? defaultNextLabel}
-          </button>
+          {props.externalHref ? (
+            <NavLink
+              href={props.externalHref}
+              class={[
+                "mt-6 block w-full rounded-2xl px-6 py-4 text-lg font-black text-white shadow-xl transition hover:brightness-105",
+                `bg-gradient-to-r ${theme.gradient}`,
+              ].join(" ")}
+            >
+              {props.nextLabel ?? defaultNextLabel}
+            </NavLink>
+          ) : (
+            <button
+              type="button"
+              onClick$={props.onContinue$}
+              class={[
+                "mt-6 w-full rounded-2xl px-6 py-4 text-lg font-black text-white shadow-xl transition hover:brightness-105",
+                `bg-gradient-to-r ${theme.gradient}`,
+              ].join(" ")}
+            >
+              {props.nextLabel ?? defaultNextLabel}
+            </button>
+          )}
         </div>
       </div>
     );
@@ -674,10 +688,9 @@ export const LessonVictoryModal = component$(
     score: number;
     esPerfecta: boolean;
     nextLesson?: { id_leccion: number; titulo: string } | null;
-    idCompetencia: number;
-    onCampus$: () => void;
+    campusHref: string;
+    competenciaHref: string;
     onNext$: () => void;
-    onCompetencia$: () => void;
   }) => (
     <div
       class="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/60 p-4 backdrop-blur-sm"
@@ -722,20 +735,18 @@ export const LessonVictoryModal = component$(
                 Siguiente: {props.nextLesson.titulo}
               </button>
             ) : null}
-            <button
-              type="button"
-              onClick$={props.onCompetencia$}
-              class="w-full rounded-2xl border-2 border-emerald-300 bg-white px-6 py-3 text-base font-bold text-emerald-800"
+            <NavLink
+              href={props.competenciaHref}
+              class="block w-full rounded-2xl border-2 border-emerald-300 bg-white px-6 py-3 text-center text-base font-bold text-emerald-800"
             >
               Ver más lecciones
-            </button>
-            <button
-              type="button"
-              onClick$={props.onCampus$}
-              class="w-full rounded-2xl px-6 py-3 text-sm font-semibold text-slate-600 hover:text-slate-900"
+            </NavLink>
+            <NavLink
+              href={props.campusHref}
+              class="block w-full rounded-2xl px-6 py-3 text-center text-sm font-semibold text-slate-600 hover:text-slate-900"
             >
               Ir al campus
-            </button>
+            </NavLink>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
+import { $, component$, useSignal, useTask$ } from "@builder.io/qwik";
 import type { MeaningChoiceOption } from "~/lib/lesson-games";
 import { fisherYatesShuffle } from "~/lib/lesson-games";
 
@@ -16,7 +16,7 @@ export const MeaningChoiceGame = component$(
     const shuffled = useSignal<MeaningChoiceOption[]>([]);
     const selected = useSignal<string | null>(null);
 
-    useVisibleTask$(({ track }) => {
+    useTask$(({ track }) => {
       track(() => props.options);
       track(() => props.seed);
       shuffled.value = fisherYatesShuffle(props.options, props.seed);

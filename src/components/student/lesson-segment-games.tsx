@@ -53,7 +53,9 @@ export const LessonSegmentGameArena = component$(
       prompt: string;
       options: PictureChoiceOption[];
       correctTerm: string;
+      englishTerm?: string;
       sentence?: string;
+      hintMeaning?: string;
     };
     meaningRound: {
       prompt: string;
@@ -119,6 +121,9 @@ export const LessonSegmentGameArena = component$(
             prompt={props.pictureRound.prompt}
             options={props.pictureRound.options}
             seed={props.gameSeed}
+            englishTerm={props.pictureRound.englishTerm}
+            hintMeaning={props.pictureRound.hintMeaning}
+            showTermLabels={props.segment === "use"}
             disabled={props.disabled}
             saving={props.saving}
             onSubmit$={(selectedTerm) =>

@@ -70,9 +70,18 @@ export const SpellingBuildGame = component$(
                 </p>
               ) : null}
               <p class="text-sm font-bold text-amber-800">
-                Escribe en inglés:{" "}
-                <span class="font-black">{props.round.meaning}</span>
+                Escribe en inglés ({props.round.letterCount}{" "}
+                {props.round.letterCount === 1 ? "letra" : "letras"})
               </p>
+              {props.round.suppressSpanishHint ? (
+                <p class="text-xs font-semibold text-amber-700/90">
+                  Usa solo letras en inglés — no escribas en español
+                </p>
+              ) : (
+                <p class="text-xs font-semibold text-amber-700/90">
+                  Pista: significa «{props.round.meaning}» — no escribas en español
+                </p>
+              )}
             </div>
           </div>
           <p class="text-sm font-mono font-bold text-amber-600">

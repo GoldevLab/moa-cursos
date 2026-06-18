@@ -1,7 +1,7 @@
-import { $, component$, useSignal, useVisibleTask$ } from "@builder.io/qwik";
+import { $, component$, useSignal, useTask$, useVisibleTask$ } from "@builder.io/qwik";
 import { LuArrowRight } from "@qwikest/icons/lucide";
 import type { MatchPairItem } from "~/lib/lesson-games";
-import { fisherYatesShuffle, gradeMatchPairs } from "~/lib/lesson-games";
+import { gradeMatchPairs, shuffleMatchColumnOrders } from "~/lib/lesson-games";
 
 const MATCH_COLORS = [
   { dot: "bg-sky-500", ring: "ring-sky-200", border: "border-sky-200" },
@@ -24,12 +24,13 @@ export const MatchPairsGame = component$(
     const matchMap = useSignal<Record<string, string>>({});
     const elapsed = useSignal(0);
 
-    useVisibleTask$(({ track }) => {
+    useTask$(({ track }) => {
       track(() => props.pairs);
       track(() => props.seed);
       const ids = props.pairs.map((p) => p.id);
-      leftOrder.value = fisherYatesShuffle(ids, props.seed + 11);
-      rightOrder.value = fisherYatesShuffle(ids, props.seed + 29);
+      const { left, right } = shuffleMatchColumnOrders(ids, props.seed);
+      leftOrder.value = left;
+      rightOrder.value = right;
       selectedLeftId.value = null;
       matchMap.value = {};
       elapsed.value = 0;

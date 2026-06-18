@@ -1,5 +1,5 @@
 import { component$ } from "@builder.io/qwik";
-import { Link, routeLoader$, type DocumentHead } from "@builder.io/qwik-city";
+import { routeLoader$, type DocumentHead } from "@builder.io/qwik-city";
 import {
   LuArrowRight,
   LuFlame,
@@ -12,6 +12,8 @@ import {
 } from "@qwikest/icons/lucide";
 import { LAPSO_COLORS } from "~/components/student/student-ui";
 import { CampusJourneyMap } from "~/components/student/campus-journey";
+import { NavLink } from "~/components/ui/nav-link";
+import { routes } from "~/lib/routes";
 import { getCurrentUsuario } from "~/lib/auth";
 import {
   getEstudianteByUsuarioId,
@@ -136,8 +138,8 @@ export default component$(() => {
       ) : null}
 
       {continuar ? (
-        <Link
-          href={`/dashboard/estudiante/leccion/${continuar.id_leccion}/`}
+        <NavLink
+          href={routes.estudiante.leccion(continuar.id_leccion)}
           class="moa-card-hover flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-violet-50 p-5 shadow-sm"
         >
           <div>
@@ -151,7 +153,7 @@ export default component$(() => {
             <LuPlay class="h-4 w-4" />
             Seguir lección
           </span>
-        </Link>
+        </NavLink>
       ) : null}
 
       {lapsos.map((lapso) => {
@@ -200,9 +202,9 @@ export default component$(() => {
                       )
                     : 0;
                 return comp.desbloqueada ? (
-                  <Link
+                  <NavLink
                     key={comp.id_competencia}
-                    href={`/dashboard/estudiante/competencia/${comp.id_competencia}/`}
+                    href={routes.estudiante.competencia(comp.id_competencia)}
                     class="moa-card-hover group flex flex-col rounded-2xl border border-slate-200/80 bg-white/90 p-5 shadow-sm backdrop-blur-sm"
                   >
                     <div class="flex items-start justify-between gap-3">
@@ -251,7 +253,7 @@ export default component$(() => {
                         <LuArrowRight class="h-4 w-4 transition group-hover:translate-x-0.5" />
                       </span>
                     </div>
-                  </Link>
+                  </NavLink>
                 ) : (
                   <div
                     key={comp.id_competencia}

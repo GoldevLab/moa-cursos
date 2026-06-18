@@ -1,5 +1,5 @@
 import { component$ } from "@builder.io/qwik";
-import { Link } from "@builder.io/qwik-city";
+import { NavLink } from "~/components/ui/nav-link";
 import {
   LuCheck,
   LuChevronRight,
@@ -148,12 +148,12 @@ export const BreadcrumbTrail = component$(
         <span key={item.label} class="inline-flex items-center gap-1">
           {i > 0 ? <LuChevronRight class="h-3.5 w-3.5 text-slate-300" /> : null}
           {item.href ? (
-            <Link
+            <NavLink
               href={item.href}
               class="font-medium text-indigo-600 hover:underline"
             >
               {item.label}
-            </Link>
+            </NavLink>
           ) : (
             <span class="font-medium text-slate-800">{item.label}</span>
           )}
