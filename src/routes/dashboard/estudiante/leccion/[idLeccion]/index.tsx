@@ -580,7 +580,8 @@ export default component$(() => {
   });
 
   return (
-    <div class="space-y-3 moa-fade-up">
+    <>
+      <div class="space-y-3 moa-fade-up">
       <LessonGameHeader
         competencia={page.lesson.competencia}
         titulo={page.lesson.titulo}
@@ -685,6 +686,7 @@ export default component$(() => {
           </div>
         </div>
       ) : null}
+      </div>
 
       {missionOverlay.value ? (
         <LessonMissionCompleteOverlay
@@ -719,6 +721,6 @@ export default component$(() => {
           trophyLapsos.value = [];
         })}
       />
-    </div>
+    </>
   );
 });

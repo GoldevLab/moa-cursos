@@ -594,6 +594,12 @@ export const LessonVocabReveal = component$(
   ),
 );
 
+/** Centrado real en viewport (móvil incluido); z por encima del nav inferior. */
+const LESSON_MODAL_BACKDROP =
+  "fixed inset-0 z-[100] flex min-h-[100dvh] items-center justify-center overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))] backdrop-blur-sm";
+
+const LESSON_MODAL_PANEL = "relative my-auto w-full max-w-lg shrink-0";
+
 export const LessonMissionCompleteOverlay = component$(
   (props: {
     segment: LessonSegment;
@@ -613,12 +619,17 @@ export const LessonMissionCompleteOverlay = component$(
 
     return (
       <div
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+        class={`${LESSON_MODAL_BACKDROP} bg-slate-900/50`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="mission-complete-title"
       >
-        <div class="relative w-full max-w-md overflow-hidden rounded-3xl border-2 border-white/20 bg-white p-6 text-center shadow-2xl moa-pop sm:p-8">
+        <div
+          class={[
+            LESSON_MODAL_PANEL,
+            "overflow-hidden rounded-3xl border-2 border-white/20 bg-white p-6 text-center shadow-2xl moa-pop sm:p-8",
+          ].join(" ")}
+        >
           <div class="pointer-events-none absolute -right-6 -top-6 text-7xl opacity-20">
             {mascot.emoji}
           </div>
@@ -684,12 +695,17 @@ export const LessonVictoryModal = component$(
     onNext$: () => void;
   }) => (
     <div
-      class="fixed inset-0 z-50 flex items-center justify-center bg-indigo-900/60 p-4 backdrop-blur-sm"
+      class={`${LESSON_MODAL_BACKDROP} bg-indigo-900/60`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="victory-title"
     >
-      <div class="relative w-full max-w-lg overflow-hidden rounded-3xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-6 shadow-2xl moa-pop sm:p-8">
+      <div
+        class={[
+          LESSON_MODAL_PANEL,
+          "overflow-hidden rounded-3xl border-2 border-amber-200 bg-gradient-to-br from-amber-50 via-white to-emerald-50 p-6 shadow-2xl moa-pop sm:p-8",
+        ].join(" ")}
+      >
         <div class="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
           {["⭐", "🎉", "🏆", "✨", "🌟"].map((e, i) => (
             <span
