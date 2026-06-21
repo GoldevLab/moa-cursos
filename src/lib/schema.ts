@@ -1,6 +1,11 @@
 import { getDbClient, isSchemaEnsured, markSchemaAsEnsured } from "./db";
 import { hashPassword } from "./auth";
 import { repairAllLessonContent, seedAllLessonContent } from "./lesson-content";
+import {
+  COMPETENCY_1_LESSON_TITLES,
+  FIRST_GRADE_COMPETENCY_TITLE,
+  FIRST_GRADE_COMPETENCIES,
+} from "./competency-1-curriculum";
 
 const TABLE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS usuario (
@@ -144,7 +149,12 @@ const seedCompetencias = async () => {
       await client.execute({
         sql: `INSERT OR IGNORE INTO competencia (id_competencia, id_grado, titulo, orden, lapso)
               VALUES (?, 1, ?, ?, ?)`,
-        args: [orden, `Competencia ${orden}`, orden, block.lapso],
+        args: [
+          orden,
+          FIRST_GRADE_COMPETENCY_TITLE,
+          orden,
+          block.lapso,
+        ],
       });
     }
   }
@@ -160,10 +170,15 @@ const seedLecciones = async () => {
     const idCompetencia = Number(row.id_competencia);
     for (let orden = 1; orden <= 8; orden++) {
       const idLeccion = (idCompetencia - 1) * 8 + orden;
+      const titulo =
+        idCompetencia <= FIRST_GRADE_COMPETENCIES &&
+        COMPETENCY_1_LESSON_TITLES[orden]
+          ? COMPETENCY_1_LESSON_TITLES[orden]
+          : `Lección ${orden}`;
       await client.execute({
         sql: `INSERT OR IGNORE INTO leccion (id_leccion, id_competencia, titulo, orden)
               VALUES (?, ?, ?, ?)`,
-        args: [idLeccion, idCompetencia, `Lección ${orden}`, orden],
+        args: [idLeccion, idCompetencia, titulo, orden],
       });
     }
   }

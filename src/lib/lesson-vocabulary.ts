@@ -1,4 +1,22 @@
+import {
+  COMPETENCY_1_LESSON_TERMS,
+  COMPETENCY_1_WORD_BANK,
+  firstGradeWorkbookBlock,
+  isFirstGradeLesson,
+  lookupCompetency1Term,
+} from "./competency-1-curriculum";
+
 export type VocabItem = { term: string; meaning: string };
+
+export {
+  COMPETENCY_1_WORD_BANK,
+  auditCompetency1WordBank,
+  FIRST_GRADE_LESSONS,
+  FIRST_GRADE_COMPETENCIES,
+  FIRST_GRADE_COMPETENCY_TITLE,
+  firstGradeWorkbookBlock,
+  isFirstGradeLesson,
+} from "./competency-1-curriculum";
 
 export type CompetencyTheme = {
   title: string;
@@ -14,36 +32,14 @@ const parseWords = (entries: string[]): VocabItem[] =>
     };
   });
 
+/** Competencia 1 usa el word bank completo del workbook MOA A1C1. */
+const COMPETENCY_1_WORDS = COMPETENCY_1_WORD_BANK;
+
 /** 16 temas × 24 palabras = 384 términos únicos (8 lecciones × 3 palabras por tema). */
 export const COMPETENCY_THEMES: CompetencyTheme[] = [
   {
-    title: "Saludos y cortesía",
-    words: parseWords([
-      "hello:hola",
-      "goodbye:adiós",
-      "please:por favor",
-      "thanks:gracias",
-      "sorry:perdón",
-      "welcome:bienvenido",
-      "yes:sí",
-      "no:no",
-      "how:cómo",
-      "gift:regalo",
-      "morning:buenos días",
-      "night:buenas noches",
-      "see you:hasta luego",
-      "excuse:disculpa",
-      "help:ayuda",
-      "nice:agradable",
-      "fine:bien",
-      "okay:de acuerdo",
-      "meet:conocer",
-      "name:nombre",
-      "dear:querido",
-      "good:bueno",
-      "sure:claro",
-      "ready:listo",
-    ]),
+    title: "Información personal y familia",
+    words: COMPETENCY_1_WORDS,
   },
   {
     title: "Escuela",
@@ -490,14 +486,36 @@ export const WORDS_PER_LESSON = 3;
 /** Reparte vocabulario temático: 16 temas × 8 lecciones × 3 palabras únicas. */
 export const getLessonPlan = (idLeccion: number) => {
   const slot = idLeccion - 1;
-  const themeIndex = Math.floor(slot / LESSONS_PER_THEME) % THEME_COUNT;
+  const rawThemeIndex = Math.floor(slot / LESSONS_PER_THEME) % THEME_COUNT;
   const lessonSlot = slot % LESSONS_PER_THEME;
   const focusIndex = lessonSlot % WORDS_PER_LESSON;
-  const variant = Math.floor(slot / WORDS_PER_LESSON) % 3;
-  const theme = COMPETENCY_THEMES[themeIndex];
-  const wordStart = lessonSlot * WORDS_PER_LESSON;
-  const set = theme.words.slice(wordStart, wordStart + WORDS_PER_LESSON);
+  const firstGrade = isFirstGradeLesson(idLeccion);
+  const themeIndex = firstGrade ? 0 : rawThemeIndex;
+  const theme = firstGrade ? COMPETENCY_THEMES[0] : COMPETENCY_THEMES[rawThemeIndex];
+  const competencyIndex = Math.floor(slot / LESSONS_PER_THEME);
+
+  let set: VocabItem[];
+  if (firstGrade) {
+    const block = firstGradeWorkbookBlock(idLeccion);
+    const terms = COMPETENCY_1_LESSON_TERMS[block];
+    set = terms.map((term) => {
+      const item = lookupCompetency1Term(term);
+      if (!item) {
+        throw new Error(
+          `1.er grado (lección ${idLeccion}): término "${term}" no encontrado en word bank`,
+        );
+      }
+      return item;
+    });
+  } else {
+    const wordStart = lessonSlot * WORDS_PER_LESSON;
+    set = theme.words.slice(wordStart, wordStart + WORDS_PER_LESSON);
+  }
+
   const focus = set[focusIndex];
+  const variant = firstGrade
+    ? (Math.floor(slot / WORDS_PER_LESSON) + competencyIndex) % 3
+    : Math.floor(slot / WORDS_PER_LESSON) % 3;
   return {
     slot,
     themeIndex,

@@ -7,8 +7,20 @@ import {
   getLessonPlan,
   type VocabItem,
 } from "./lesson-vocabulary";
+import {
+  COMPETENCY_1_LESSON_TITLES,
+  COMPETENCY_1_SUMMARIES,
+  FIRST_GRADE_COMPETENCY_TITLE,
+  firstGradeWorkbookBlock,
+  isFirstGradeLesson,
+} from "./competency-1-curriculum";
 
 export { getLessonPlan };
+
+export {
+  COMPETENCY_1_LESSON_TITLES,
+  COMPETENCY_1_SUMMARIES,
+} from "./competency-1-curriculum";
 
 export type LessonExercise = {
   prompt: string;
@@ -213,23 +225,74 @@ const PLURAL_NOUNS = new Set([
   "gloves",
   "boots",
   "stairs",
+  "lions",
+  "snakes",
+  "monkeys",
+  "sharks",
+  "wolves",
 ]);
 
 /** Frases fijas para palabras que no encajan en plantillas genéricas. */
 const USE_SENTENCE_OVERRIDE: Record<string, readonly [string, string, string]> = {
+  hello: ["___! My name is Ana.", "___ , how are you?", "Say ___ to the class."],
+  name: ["My ___ is Ana.", "What is your ___ ?", "Write your ___ here."],
+  nice: ["___ to meet you!", "It is ___ to see you.", "Have a ___ day!"],
+  from: ["I am ___ Venezuela.", "She is ___ Colombia.", "We are ___ Mexico."],
+  country: ["My ___ is Venezuela.", "What ___ are you from?", "I love my ___ ."],
+  venezuelan: ["I am ___ .", "She is ___ .", "My nationality is ___ ."],
+  colombian: ["He is ___ .", "They are ___ .", "I am ___ ."],
+  lion: ["___ are wild animals.", "The ___ is strong.", "I see a ___ ."],
+  snake: ["___ are wild animals.", "The ___ is long.", "A ___ can swim."],
+  monkey: ["The ___ is funny.", "___ are wild animals.", "I like the ___ ."],
+  shark: ["The ___ lives in the sea.", "___ are wild animals.", "Watch out for the ___ !"],
+  wolf: ["The ___ howls at night.", "___ are wild animals.", "A ___ is fast."],
+  father: ["I have a ___ .", "His name is my ___ .", "My ___ is kind."],
+  mother: ["I have a ___ .", "Her name is my ___ .", "My ___ is beautiful."],
+  family: ["My ___ is beautiful.", "I love my ___ .", "This is my ___ ."],
+  grandma: ["My ___ is kind.", "I visit my ___ .", "Hello, ___ !"],
+  grandpa: ["My ___ tells stories.", "I love my ___ .", "This is my ___ ."],
+  uncle: ["My ___ is funny.", "I have an ___ .", "Say hi to my ___ ."],
+  brother: ["I have a ___ .", "My ___ is tall.", "I have two ___ ."],
+  sister: ["I have a ___ .", "My ___ is Ana.", "My ___ is kind."],
+  cousin: ["My ___ is Carlos.", "My ___ is from Colombia.", "I play with my ___ ."],
+  her: ["___ name is Maria.", "___ favorite animal is the monkey.", "This is ___ book."],
+  his: ["___ name is Carlos.", "I have a father. ___ name is Luis.", "This is ___ book."],
+  their: ["___ names are Ana and Luis.", "___ nationalities are Colombian.", "___ favorite animals are lions."],
+  my: ["___ name is Sofia.", "___ family is beautiful.", "___ favorite wild animal is the lion."],
+  your: ["What is ___ name?", "___ nationality is Venezuelan.", "Is this ___ cousin?"],
+  its: ["The flag is red. ___ color is red.", "The lion is strong. ___ name is Leo.", "The snake is long. ___ color is green."],
+  our: ["___ family is big.", "___ cousins are from Colombia.", "___ flag is yellow, blue and red."],
+  nationality: ["My ___ is Venezuelan.", "What is your ___ ?", "Their ___ is Colombian."],
+  flag: ["The ___ of my country is blue, red and white.", "This is the ___ of Venezuela.", "Point to the ___ ."],
+  beautiful: ["My family is ___ .", "What a ___ day!", "The lion is ___ and strong."],
+  kangaroo: ["The ___ jumps high.", "___ are wild animals.", "I like the ___ ."],
+  aunt: ["My ___ is kind.", "I have an ___ .", "Say hello to my ___ ."],
+  son: ["He is my ___ .", "My ___ is five years old.", "I love my ___ ."],
+  daughter: ["She is my ___ .", "My ___ is seven years old.", "I love my ___ ."],
+  siblings: ["I have two ___ .", "My ___ are fun.", "Brothers and sisters are ___ ."],
+  grandmother: ["My ___ is kind.", "I visit my ___ .", "Hello, ___ !"],
+  grandfather: ["My ___ tells stories.", "I love my ___ .", "This is my ___ ."],
+  venezuela: ["I am from ___ .", "She is from ___ .", "My cousins are from ___ ."],
+  colombia: ["He is from ___ .", "My cousin is from ___ .", "They are from ___ ."],
+  usa: ["Taylor Swift is from the ___ .", "I am from the ___ .", "The ___ flag is red, white and blue."],
+  red: ["Lions are ___ .", "The flag is ___ and blue.", "My favorite color is ___ ."],
+  blue: ["The flag is red, white and ___ .", "The sky is ___ .", "Snakes can be green or ___ ."],
+  orange: ["The fruit is ___ .", "My shirt is ___ .", "Draw an ___ circle."],
+  yellow: ["The sun is ___ .", "The flag has ___ stars.", "Bananas are ___ ."],
+  green: ["Snakes are ___ .", "The grass is ___ .", "My flag has ___ stripes."],
+  american: ["I am ___ .", "She is ___ .", "He is ___ ."],
+  italian: ["She is ___ .", "They are ___ .", "My cousin is ___ ."],
   meet: ["Nice to ___ you.", "Happy to ___ you.", "I want to ___ you."],
   how: ["___ are you?", "___ old are you?", "___ is the weather?"],
   gift: ["This is a ___ for you.", "I got a ___ today.", "What a nice ___ !"],
   excuse: ["___ me!", "___ me, teacher.", "___ me, please."],
   sure: ["___ , I will help.", "Are you ___ ?", "___ thing!"],
-  name: ["My ___ is Ana.", "What is your ___ ?", "Write your ___ here."],
   morning: ["Good ___ !", "I wake up in the ___ .", "See you this ___ !"],
   night: ["Good ___ !", "The stars shine at ___ .", "Sleep well at ___ !"],
   later: ["See you ___ !", "Come back ___ .", "Maybe ___ today."],
   good: ["Very ___ !", "That is ___ .", "Sounds ___ to me!"],
   okay: ["It is ___ .", "Are you ___ ?", "That is ___ with me."],
   fine: ["I am ___ .", "That is ___ .", "Very ___ , thanks!"],
-  nice: ["Very ___ !", "That is ___ .", "Have a ___ day!"],
   ready: ["I am ___ .", "Are you ___ ?", "Get ___ , please!"],
   dear: ["Hello, ___ friend!", "My ___ teacher.", "You are ___ to me."],
   hour: ["Wait one ___ .", "One more ___ , please!", "An ___ has sixty minutes."],
@@ -410,6 +473,21 @@ const ADJ_TERMS = new Set([
   "cloudy",
   "ripe",
   "fresh",
+  "venezuelan",
+  "colombian",
+  "american",
+  "british",
+  "french",
+  "german",
+  "italian",
+  "japanese",
+  "chinese",
+  "indian",
+  "peruvian",
+  "argentinian",
+  "canadian",
+  "syrian",
+  "lebanese",
 ]);
 
 const FALLBACK_DISTRACTORS = ["Thanks", "Please", "Hello", "Sorry", "Welcome"];
@@ -506,8 +584,11 @@ const buildUseExercise = (
 const buildExpectedContentPayload = (idLeccion: number): LessonContentPayload => {
   const { theme, themeIndex, lessonSlot, focusIndex, variant, set, focus } =
     getLessonPlan(idLeccion);
+  const summary = isFirstGradeLesson(idLeccion)
+    ? COMPETENCY_1_SUMMARIES[firstGradeWorkbookBlock(idLeccion)]
+    : `En esta lección practicarás vocabulario de ${theme.title}. Objetivo: dominar ${focus.term} y expresiones relacionadas.`;
   return {
-    summary: `En esta lección practicarás vocabulario de ${theme.title}. Objetivo: dominar ${focus.term} y expresiones relacionadas.`,
+    summary,
     vocabulary: set.map((item) => ({ ...item })),
     quiz: {
       prompt: QUIZ_PROMPTS[variant](focus.term),
@@ -941,6 +1022,14 @@ export const auditLessonUniqueness = async (): Promise<LessonContentIssue[]> => 
   const issues: LessonContentIssue[] = [];
   for (const ids of byFingerprint.values()) {
     if (ids.length < 2) continue;
+    const firstGradeOnly = ids.every((id) => isFirstGradeLesson(id));
+    if (firstGradeOnly) {
+      const blocks = new Set(ids.map((id) => firstGradeWorkbookBlock(id)));
+      const competencies = new Set(
+        ids.map((id) => Math.floor((id - 1) / 8)),
+      );
+      if (blocks.size === 1 && competencies.size === ids.length) continue;
+    }
     for (const id of ids) {
       issues.push({
         id_leccion: id,
@@ -994,6 +1083,20 @@ export const generateDefaultContentPayload = (
 export const repairAllLessonContent = async () => {
   await ensureMoaSchema();
   const client = getDbClient();
+
+  await client.execute({
+    sql: `UPDATE competencia SET titulo = ? WHERE id_grado = 1`,
+    args: [FIRST_GRADE_COMPETENCY_TITLE],
+  });
+  for (let idCompetencia = 1; idCompetencia <= 16; idCompetencia++) {
+    for (const [orden, titulo] of Object.entries(COMPETENCY_1_LESSON_TITLES)) {
+      await client.execute({
+        sql: `UPDATE leccion SET titulo = ? WHERE id_competencia = ? AND orden = ?`,
+        args: [titulo, idCompetencia, Number(orden)],
+      });
+    }
+  }
+
   const lessons = await client.execute({
     sql: "SELECT id_leccion FROM leccion ORDER BY id_leccion",
     args: [],
@@ -1013,7 +1116,12 @@ export const repairAllLessonContent = async () => {
       stored ?? expected,
     );
 
-    if (!stored || issues.length > 0 || directionIssues.length > 0) {
+    if (
+      !stored ||
+      issues.length > 0 ||
+      directionIssues.length > 0 ||
+      isFirstGradeLesson(idLeccion)
+    ) {
       await saveLessonContentPayload(idLeccion, expected);
       repaired += 1;
     }

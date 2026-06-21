@@ -4,9 +4,19 @@ import {
   auditLessonUniqueness,
   repairAllLessonContent,
 } from "../src/lib/lesson-content";
+import { auditCompetency1WordBank } from "../src/lib/competency-1-curriculum";
 import { auditAllLessonSpeech } from "../src/lib/lesson-speech-audit";
 
 const main = async () => {
+  const wordBankIssues = auditCompetency1WordBank();
+  if (wordBankIssues.length > 0) {
+    console.log(`Problemas word bank Competencia 1: ${wordBankIssues.length}`);
+    for (const msg of wordBankIssues) {
+      console.log(`- [word-bank] ${msg}`);
+    }
+    process.exit(1);
+  }
+
   const repaired = await repairAllLessonContent();
 
   const contentIssues = await auditAllLessonContent();
